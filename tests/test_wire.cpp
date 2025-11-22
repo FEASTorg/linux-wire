@@ -177,7 +177,7 @@ static void testFlushOnDifferentAddress()
     const auto &state = mockLinuxWireState();
     assert(state.writeCalls == 1);
     assert(!state.lastWriteWasIoctl);
-    assert(state.lastSetSlaveAddr == 0x10);
+    assert(state.lastWriteSlaveAddr == 0x10);
     assert(state.lastWriteBuffer.size() == 1);
     assert(state.lastWriteBuffer[0] == 0xAA);
 

@@ -96,6 +96,7 @@ ssize_t lw_write(lw_i2c_bus * /*bus*/, const uint8_t *data, size_t len, int /*se
     ++g_state.writeCalls;
     g_state.lastWriteBuffer.assign(data, data + len);
     g_state.lastWriteWasIoctl = false;
+    g_state.lastWriteSlaveAddr = g_state.lastSetSlaveAddr;
     return static_cast<ssize_t>(len);
 }
 
@@ -154,6 +155,7 @@ ssize_t lw_ioctl_write(lw_i2c_bus * /*bus*/,
     g_state.lastWriteBuffer.assign(iaddr, iaddr + iaddr_len);
     g_state.lastWriteBuffer.insert(g_state.lastWriteBuffer.end(), data, data + len);
     g_state.lastWriteWasIoctl = true;
+    g_state.lastWriteSlaveAddr = static_cast<uint8_t>(addr);
     return static_cast<ssize_t>(len);
 }
 
