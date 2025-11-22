@@ -138,7 +138,6 @@ ssize_t lw_ioctl_read(lw_i2c_bus *bus,
         return -1;
     }
 
-
     struct i2c_msg msgs[2];
     struct i2c_rdwr_ioctl_data rdwr;
     memset(&msgs, 0, sizeof(msgs));

@@ -10,19 +10,19 @@ extern "C"
 #include <stdint.h>
 #include <sys/types.h> /* for ssize_t */
 
-    /*
-     * Simple I2C bus handle for /dev/i2c-*.
-     * This is intentionally minimal for clarity and robustness.
-     */
-    #ifndef LINUX_WIRE_DEVICE_PATH_MAX
-    #define LINUX_WIRE_DEVICE_PATH_MAX 64
-    #endif
+/*
+ * Simple I2C bus handle for /dev/i2c-*.
+ * This is intentionally minimal for clarity and robustness.
+ */
+#ifndef LINUX_WIRE_DEVICE_PATH_MAX
+#define LINUX_WIRE_DEVICE_PATH_MAX 64
+#endif
 
     typedef struct
     {
-        int fd;                                     /* File descriptor for /dev/i2c-X (or -1 if closed) */
+        int fd;                                       /* File descriptor for /dev/i2c-X (or -1 if closed) */
         char device_path[LINUX_WIRE_DEVICE_PATH_MAX]; /* Path used to open the bus, e.g. "/dev/i2c-1" */
-        uint32_t timeout_us;                        /* Reserved for future timeout behavior; 0 = no timeout */
+        uint32_t timeout_us;                          /* Reserved for future timeout behavior; 0 = no timeout */
     } lw_i2c_bus;
 
     /**

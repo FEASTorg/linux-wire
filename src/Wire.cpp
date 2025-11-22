@@ -165,7 +165,6 @@ uint8_t TwoWire::endTransmission(uint8_t sendStop)
     return 0; // success
 }
 
-
 uint8_t TwoWire::endTransmission(void)
 {
     return endTransmission(1);
