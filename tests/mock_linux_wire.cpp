@@ -91,12 +91,13 @@ extern "C"
         return 0;
     }
 
-    ssize_t lw_write(lw_i2c_bus * /*bus*/, const uint8_t *data, size_t len, int /*send_stop*/)
-    {
-        ++g_state.writeCalls;
-        g_state.lastWriteBuffer.assign(data, data + len);
-        return static_cast<ssize_t>(len);
-    }
+ssize_t lw_write(lw_i2c_bus * /*bus*/, const uint8_t *data, size_t len, int /*send_stop*/)
+{
+    ++g_state.writeCalls;
+    g_state.lastWriteBuffer.assign(data, data + len);
+    g_state.lastWriteWasIoctl = false;
+    return static_cast<ssize_t>(len);
+}
 
     ssize_t lw_read(lw_i2c_bus * /*bus*/, uint8_t *data, size_t len)
     {
@@ -140,20 +141,21 @@ extern "C"
         return static_cast<ssize_t>(to_copy);
     }
 
-    ssize_t lw_ioctl_write(lw_i2c_bus * /*bus*/,
-                           uint16_t addr,
-                           const uint8_t *iaddr,
-                           size_t iaddr_len,
-                           const uint8_t *data,
-                           size_t len,
-                           uint16_t /*flags*/)
-    {
-        ++g_state.writeCalls;
-        g_state.lastSetSlaveAddr = static_cast<uint8_t>(addr);
-        g_state.lastWriteBuffer.assign(iaddr, iaddr + iaddr_len);
-        g_state.lastWriteBuffer.insert(g_state.lastWriteBuffer.end(), data, data + len);
-        return static_cast<ssize_t>(len);
-    }
+ssize_t lw_ioctl_write(lw_i2c_bus * /*bus*/,
+                       uint16_t addr,
+                       const uint8_t *iaddr,
+                       size_t iaddr_len,
+                       const uint8_t *data,
+                       size_t len,
+                       uint16_t /*flags*/)
+{
+    ++g_state.writeCalls;
+    g_state.lastSetSlaveAddr = static_cast<uint8_t>(addr);
+    g_state.lastWriteBuffer.assign(iaddr, iaddr + iaddr_len);
+    g_state.lastWriteBuffer.insert(g_state.lastWriteBuffer.end(), data, data + len);
+    g_state.lastWriteWasIoctl = true;
+    return static_cast<ssize_t>(len);
+}
 
     int lw_set_timeout(lw_i2c_bus * /*bus*/, uint32_t timeout_us)
     {

@@ -23,3 +23,11 @@ target_include_directories(linux_wire_tests PRIVATE
 )
 
 add_test(NAME linux_wire_tests COMMAND linux_wire_tests)
+
+add_executable(linux_wire_c_tests
+    test_linux_wire_c.c
+)
+
+target_link_libraries(linux_wire_c_tests PRIVATE linux_wire)
+
+add_test(NAME linux_wire_c_tests COMMAND linux_wire_c_tests)

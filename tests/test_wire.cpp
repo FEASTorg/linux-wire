@@ -126,6 +126,79 @@ static void testDeferredWriteFlushes()
     tw.end();
 }
 
+static void testTxBufferOverflow()
+{
+    mockLinuxWireReset();
+
+    TwoWire tw;
+    tw.begin("/dev/i2c-mock");
+
+    tw.beginTransmission(static_cast<uint8_t>(0x40));
+    for (int i = 0; i < LINUX_WIRE_BUFFER_LENGTH; ++i)
+    {
+        assert(tw.write(static_cast<uint8_t>(i)) == 1);
+    }
+    // One more byte should be rejected.
+    assert(tw.write(0xFF) == 0);
+    assert(tw.endTransmission() == 0);
+
+    tw.beginTransmission(static_cast<uint8_t>(0x40));
+    for (int i = 0; i < LINUX_WIRE_BUFFER_LENGTH + 1; ++i)
+    {
+        tw.write(static_cast<uint8_t>(i));
+    }
+    assert(tw.endTransmission() == 1);
+
+    tw.end();
+}
+
+static void testFlushOnDifferentAddress()
+{
+    mockLinuxWireReset();
+
+    TwoWire tw;
+    tw.begin("/dev/i2c-mock");
+
+    tw.beginTransmission(static_cast<uint8_t>(0x10));
+    tw.write(static_cast<uint8_t>(0xAA));
+    assert(tw.endTransmission(false) == 0);
+
+    // Requesting from a different address should flush the pending write.
+    tw.requestFrom(static_cast<uint8_t>(0x20), static_cast<uint8_t>(1));
+
+    const auto &state = mockLinuxWireState();
+    assert(state.writeCalls == 1);
+    assert(!state.lastWriteWasIoctl);
+    assert(state.lastSetSlaveAddr == 0x10);
+    assert(state.lastWriteBuffer.size() == 1);
+    assert(state.lastWriteBuffer[0] == 0xAA);
+
+    tw.end();
+}
+
+static void testZeroInternalAddressFallback()
+{
+    mockLinuxWireReset();
+    mockLinuxWireSetReadData({0x99});
+
+    TwoWire tw;
+    tw.begin("/dev/i2c-mock");
+
+    uint8_t count = tw.requestFrom(static_cast<uint8_t>(0x33),
+                                   static_cast<uint8_t>(1),
+                                   0,
+                                   static_cast<uint8_t>(0),
+                                   static_cast<uint8_t>(1));
+    assert(count == 1);
+    assert(tw.read() == 0x99);
+
+    const auto &state = mockLinuxWireState();
+    assert(state.readCalls == 1);
+    assert(state.ioctlReadCalls == 0);
+
+    tw.end();
+}
+
 int main()
 {
     testPlainReadUsesRead();
@@ -133,6 +206,9 @@ int main()
     testInternalAddressClamp();
     testTimeoutFlagOnReadFailure();
     testDeferredWriteFlushes();
+    testTxBufferOverflow();
+    testFlushOnDifferentAddress();
+    testZeroInternalAddressFallback();
 
     std::puts("linux_wire tests passed");
     return 0;
