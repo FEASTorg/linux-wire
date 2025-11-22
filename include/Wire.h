@@ -21,7 +21,7 @@
  *  - Master mode only (no slave callbacks).
  *  - No inheritance from Stream / Print.
  *  - setClock() is currently a no-op (Linux bus speed is configured elsewhere).
- *  - endTransmission(sendStop) ignores sendStop; repeated starts are not yet supported.
+ *  - Repeated starts are emulated via I2C_RDWR ioctl calls; slave-mode callbacks remain unsupported.
  */
 class TwoWire
 {
