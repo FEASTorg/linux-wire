@@ -283,6 +283,15 @@ size_t TwoWire::write(const uint8_t *data, size_t quantity)
     return written;
 }
 
+size_t TwoWire::write(const char *str)
+{
+    if (!str)
+    {
+        return 0;
+    }
+    return write(reinterpret_cast<const uint8_t *>(str), std::strlen(str));
+}
+
 int TwoWire::available(void) const
 {
     if (rxBufferLength_ < rxBufferIndex_)

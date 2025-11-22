@@ -97,6 +97,7 @@ public:
      */
     size_t write(uint8_t data);
     size_t write(const uint8_t *data, size_t quantity);
+    size_t write(const char *str);
 
     /**
      * RX buffer accessors: must be called after requestFrom().
