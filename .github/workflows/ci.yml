@@ -41,7 +41,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install dependencies
+      - name: Install dependencies (Ubuntu)
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build gcc g++
+
+      - name: Install dependencies (Debian Trixie)
+        if: matrix.os == 'debian-trixie'
         run: |
           apt-get update
           apt-get install -y cmake ninja-build gcc g++
