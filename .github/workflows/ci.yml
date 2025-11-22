@@ -3,8 +3,31 @@ name: CI
 on:
   push:
     branches: [main]
+    paths:
+      - "CMakeLists.txt"
+      - ".github/workflows/ci.yml"
+      - "src/**"
+      - "include/**"
+      - "tests/**"
+      - "examples/**"
+      - "**/*.c"
+      - "**/*.cpp"
+      - "**/*.h"
+      - "**/*.hpp"
+
   pull_request:
     branches: [main]
+    paths:
+      - "CMakeLists.txt"
+      - ".github/workflows/ci.yml"
+      - "src/**"
+      - "include/**"
+      - "tests/**"
+      - "examples/**"
+      - "**/*.c"
+      - "**/*.cpp"
+      - "**/*.h"
+      - "**/*.hpp"
 
 jobs:
   build:
