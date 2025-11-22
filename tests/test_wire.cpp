@@ -145,9 +145,17 @@ static void testTxBufferOverflow()
     tw.beginTransmission(static_cast<uint8_t>(0x40));
     for (int i = 0; i < LINUX_WIRE_BUFFER_LENGTH + 1; ++i)
     {
-        tw.write(static_cast<uint8_t>(i));
+        size_t wrote = tw.write(static_cast<uint8_t>(i));
+        if (i < LINUX_WIRE_BUFFER_LENGTH)
+        {
+            assert(wrote == 1);
+        }
+        else
+        {
+            assert(wrote == 0);
+        }
     }
-    assert(tw.endTransmission() == 1);
+    assert(tw.endTransmission() == 0);
 
     tw.end();
 }
