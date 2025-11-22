@@ -1,6 +1,6 @@
 # linux-wire
 
-linux-wire is a minimal Linux-native I²C library that mirrors Arduino’s `Wire` API. It ships a tiny C shim over `/dev/i2c-*` plus a `TwoWire` C++ class so Arduino-style sketches can run on Raspberry Pi–class systems without heavyweight dependencies.
+linux-wire is a minimal Linux-native I²C abstraction library that mirrors Arduino’s `Wire` API. It ships a tiny C shim over `/dev/i2c-*` plus a `TwoWire` C++ class so Arduino-style sketches can run on Raspberry Pi–class systems without heavyweight dependencies.
 
 ## Quick Start
 
