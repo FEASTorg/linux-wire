@@ -1,10 +1,9 @@
 # linux-wire
 
-[![CI](https://github.com/FEASTorg/linux-wire/actions/workflows/ci.yml/badge.svg)](https://github.com/FEASTorg/linux-wire/actions/workflows/ci.yml)
-[![License: GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-blue.svg)](./LICENSE)
-
-![Language](https://img.shields.io/badge/language-C%2B%2B%20%7C%20C-green)
-![CMake](https://img.shields.io/badge/build-CMake-informational)
+[![CI](https://img.shields.io/badge/CI-GitHub_Actions-6f42c1)](https://github.com/FEASTorg/linux-wire/actions/workflows/ci.yml)
+[![License: GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-20b2aa)](./LICENSE)
+![Language](https://img.shields.io/badge/language-C%2B%2B%20%7C%20C-f39c12)
+![CMake](https://img.shields.io/badge/build-CMake-708090)
 
 linux-wire is a minimal Linux-native I²C abstraction library that mirrors Arduino’s `Wire` API. It ships a tiny C shim over `/dev/i2c-*` plus a `TwoWire` C++ class so Arduino-style sketches can run on Raspberry Pi–class systems without heavyweight dependencies.
 
