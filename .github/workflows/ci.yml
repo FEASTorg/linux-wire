@@ -31,15 +31,20 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, debian-trixie]
+    runs-on: ${{ matrix.os == 'ubuntu-22.04' && 'ubuntu-22.04' || 'ubuntu-latest' }}
+
+    container: ${{ matrix.os == 'debian-trixie' && 'debian:trixie' || '' }}
 
     steps:
       - uses: actions/checkout@v4
 
       - name: Install dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake ninja-build gcc g++
+          apt-get update
+          apt-get install -y cmake ninja-build gcc g++
 
       - name: Configure
         run: cmake -S . -B build -G Ninja -DBUILD_TESTING=ON
