@@ -194,7 +194,7 @@ uint8_t TwoWire::requestFrom(uint8_t address, uint8_t quantity, uint8_t sendStop
 
 uint8_t TwoWire::requestFrom(uint8_t address, uint8_t quantity)
 {
-    return requestFrom(address, quantity, 1);
+    return requestFrom(address, quantity, static_cast<uint8_t>(1));
 }
 
 uint8_t TwoWire::requestFrom(uint8_t address, uint8_t quantity, uint32_t iaddress, uint8_t isize, uint8_t sendStop)
@@ -229,7 +229,7 @@ uint8_t TwoWire::requestFrom(int address, int quantity)
     }
     return requestFrom(static_cast<uint8_t>(address),
                        static_cast<uint8_t>(quantity),
-                       1);
+                       static_cast<uint8_t>(1));
 }
 
 uint8_t TwoWire::requestFrom(int address, int quantity, int sendStop)

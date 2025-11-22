@@ -15,7 +15,7 @@ static void testPlainReadUsesRead()
     TwoWire tw;
     tw.begin("/dev/i2c-mock");
 
-    uint8_t count = tw.requestFrom(0x20, static_cast<uint8_t>(2));
+    uint8_t count = tw.requestFrom(static_cast<uint8_t>(0x20), static_cast<uint8_t>(2));
     assert(count == 2);
     assert(tw.available() == 2);
     assert(tw.read() == 0x11);
@@ -40,7 +40,7 @@ static void testRepeatedStartUsesIoctl()
     assert(tw.write(0x10) == 1);
     assert(tw.endTransmission(false) == 0);
 
-    uint8_t count = tw.requestFrom(0x50, static_cast<uint8_t>(1));
+    uint8_t count = tw.requestFrom(static_cast<uint8_t>(0x50), static_cast<uint8_t>(1));
     assert(count == 1);
     assert(tw.read() == 0xAB);
 
@@ -62,7 +62,7 @@ static void testInternalAddressClamp()
     TwoWire tw;
     tw.begin("/dev/i2c-mock");
 
-    uint8_t count = tw.requestFrom(0x40,
+    uint8_t count = tw.requestFrom(static_cast<uint8_t>(0x40),
                                    static_cast<uint8_t>(2),
                                    0x12345678,
                                    static_cast<uint8_t>(6),
@@ -91,7 +91,7 @@ static void testTimeoutFlagOnReadFailure()
     tw.begin("/dev/i2c-mock");
     tw.setWireTimeout(1000, true);
 
-    uint8_t count = tw.requestFrom(0x30, static_cast<uint8_t>(1));
+    uint8_t count = tw.requestFrom(static_cast<uint8_t>(0x30), static_cast<uint8_t>(1));
     assert(count == 0);
     assert(tw.getWireTimeoutFlag());
 
