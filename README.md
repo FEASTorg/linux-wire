@@ -1,6 +1,6 @@
 # linux-wire
 
-[![CI](https://github.com/your-user/linux-wire/actions/workflows/ci.yml/badge.svg)](https://github.com/your-user/linux-wire/actions/workflows/ci.yml)
+[![CI](https://github.com/FEASTorg/linux-wire/actions/workflows/ci.yml/badge.svg)](https://github.com/FEASTorg/linux-wire/actions/workflows/ci.yml)
 [![License: GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-blue.svg)](./LICENSE)
 
 ![Language](https://img.shields.io/badge/language-C%2B%2B%20%7C%20C-green)
