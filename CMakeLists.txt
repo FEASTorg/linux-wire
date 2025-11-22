@@ -5,6 +5,7 @@ project(linux-wire
     LANGUAGES C CXX
 )
 
+include(CTest)
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
@@ -80,3 +81,7 @@ install(FILES
     ${CMAKE_CURRENT_BINARY_DIR}/cmake/linux_wireConfigVersion.cmake
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/linux_wire
 )
+
+if(BUILD_TESTING)
+    add_subdirectory(tests)
+endif()
