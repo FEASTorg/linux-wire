@@ -1,115 +1,25 @@
 # linux-wire
 
-A minimal, Linux-native I²C library that replicates the core behavior and API style of Arduino’s `Wire` library.  
-Provides:
+linux-wire is a minimal Linux-native I²C library that mirrors Arduino’s `Wire` API. It ships a tiny C shim over `/dev/i2c-*` plus a `TwoWire` C++ class so Arduino-style sketches can run on Raspberry Pi–class systems without heavyweight dependencies.
 
-- A small C backend over `/dev/i2c-*`
-- A `TwoWire` C++ class (`Wire`) for simple, Arduino-like I²C master communication
-
-This library is intended as a lightweight, foundational component for embedded Linux systems that need a familiar, buffer-based I²C API.
-
----
-
-## Features
-
-- Master-mode I²C read/write using Linux `i2c-dev`
-- Arduino-style `Wire.begin()`, `Wire.beginTransmission()`, `Wire.write()`, `Wire.endTransmission()`, `Wire.requestFrom()`
-- Register-friendly `requestFrom(address, quantity, iaddress, isize, sendStop)` helper that mirrors the upstream Arduino overload
-- Internal RX/TX buffers modeled after Arduino `BUFFER_LENGTH`
-- No external dependencies
-- Simple CMake-based build
-
----
-
-## Building
+## Quick Start
 
 ```sh
-cmake -S . -B build
+cmake -S . -B build -DBUILD_TESTING=ON
 cmake --build build
+ctest --test-dir build --output-on-failure
 ```
 
----
+Use `cmake --install build` to install headers and the static library; downstream CMake projects can simply `find_package(linux_wire CONFIG REQUIRED)` and link against `linux_wire::linux_wire`.
 
-## Installing System-Wide (Optional)
+Example binaries (`i2c_scanner`, `master_reader`, `master_writer`) live under `build/` after compiling.
 
-```sh
-cmake --install build
-sudo ldconfig
-```
+## Documentation
 
-### Using linux-wire from another CMake project
-
-```cmake
-find_package(linux_wire CONFIG REQUIRED)
-
-add_executable(my_app main.cpp)
-target_link_libraries(my_app PRIVATE linux_wire::linux_wire)
-```
-
-The exported target exposes both the C and C++ headers, so including either `linux_wire.h` or `Wire.h` works without additional include path tweaks.
-
----
-
-## Running Examples
-
-```sh
-cd build
-./i2c_scanner
-```
-
----
-
-## Project Tree
-
-```sh
-linux-wire/
-├── CMakeLists.txt
-├── LICENSE
-├── README.md
-│
-├── include/
-│   ├── linux_wire.h      # C API
-│   └── Wire.h            # C++ Wire-like API (TwoWire)
-│
-├── src/
-│   ├── linux_wire.c      # C implementation using /dev/i2c-* and ioctl
-│   ├── Wire.cpp          # TwoWire implementation using linux_wire.c
-│   └── internal_config.h # buffer sizes, defaults (optional)
-│
-└── examples/
-    ├── i2c_scanner/
-    │   └── main.cpp
-    ├── master_reader/
-    │   └── main.cpp
-    └── master_writer/
-        └── main.cpp
-```
-
----
-
-## Goal
-
-We are building **linux-wire**, a minimal Linux-native library that replicates the core behavior and user-facing API of Arduino’s `Wire` (I²C) library. The goal is a simple, foundational, open-source I²C abstraction that feels like Arduino on embedded Linux systems such as Raspberry Pi. The design uses a clean C backend that wraps `/dev/i2c-*` and Linux `i2c-dev` ioctls, plus a lightweight C++ `TwoWire` class providing an Arduino-style interface (`Wire.begin()`, `Wire.beginTransmission()`, `Wire.write()`, `Wire.endTransmission()`, `Wire.requestFrom()`).
-
-This library intentionally omits AVR internals, interrupts, and slave-mode behavior, focusing instead on portable, predictable master-mode communication with buffer semantics modeled on Arduino. The repo uses a simple CMake build, installs headers and a static library, and includes small example programs (`i2c_scanner`, `master_reader`, `master_writer`). The result is a stable, concise, and approachable I²C layer suitable for embedded Linux instruments, firmware-like applications, or higher-level abstraction libraries.
-
-Key objectives:
-
-- **Familiar API**: Replicate Arduino `Wire` API for easy adoption by Arduino users (see `_reference/Wire`)
-- **Lightweight**: Minimal dependencies, small codebase, easy to build and integrate
-- **Linux-native**: Use Linux `i2c-dev` interface for robust I²C communication (see `_reference/libi2c`)
-
----
+- [Project goals](./GOAL.md) — what the MVP covers.
+- [Docs index](./docs/index.md) — architecture overview, API examples, CI info.
+- [Testing guide](./docs/testing.md) — running mock-based unit tests and suggested hardware validation steps.
 
 ## License
 
-GNU General Public License v3.0 or later (GPL-3.0-or-later)
-See [LICENSE](./LICENSE) for details.
-
----
-
-## Notes on the Wire-style API
-
-- The combined overload `Wire.requestFrom(address, quantity, iaddress, isize, sendStop)` is implemented so you can read internal registers without a manual write phase.
-- Traditional repeated-start flows (`beginTransmission` → `write` → `endTransmission(false)` → `requestFrom`) are supported; the pending write bytes are buffered and consumed as part of a single `I2C_RDWR` transaction on the next `requestFrom` to that address. If you call `endTransmission(false)` without following up with `requestFrom`, those buffered bytes are flushed (with a STOP) before the next transmission to avoid silently discarding data.
-- `Wire.setWireTimeout(timeout_us, reset_on_timeout)` tracks Linux `ETIMEDOUT` errors. If `reset_on_timeout` is true, the bus handle is closed and reopened automatically, matching the semantics of the upstream AVR implementation.
+GPL-3.0-or-later. See [LICENSE](./LICENSE).
