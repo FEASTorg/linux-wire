@@ -14,6 +14,7 @@ This library is intended as a lightweight, foundational component for embedded L
 
 - Master-mode I²C read/write using Linux `i2c-dev`
 - Arduino-style `Wire.begin()`, `Wire.beginTransmission()`, `Wire.write()`, `Wire.endTransmission()`, `Wire.requestFrom()`
+- Register-friendly `requestFrom(address, quantity, iaddress, isize, sendStop)` helper that mirrors the upstream Arduino overload
 - Internal RX/TX buffers modeled after Arduino `BUFFER_LENGTH`
 - No external dependencies
 - Simple CMake-based build
@@ -23,10 +24,8 @@ This library is intended as a lightweight, foundational component for embedded L
 ## Building
 
 ```sh
-mkdir build
-cd build
-cmake ..
-make
+cmake -S . -B build
+cmake --build build
 ```
 
 ---
@@ -34,9 +33,20 @@ make
 ## Installing System-Wide (Optional)
 
 ```sh
-sudo make install
+cmake --install build
 sudo ldconfig
 ```
+
+### Using linux-wire from another CMake project
+
+```cmake
+find_package(linux_wire CONFIG REQUIRED)
+
+add_executable(my_app main.cpp)
+target_link_libraries(my_app PRIVATE linux_wire::linux_wire)
+```
+
+The exported target exposes both the C and C++ headers, so including either `linux_wire.h` or `Wire.h` works without additional include path tweaks.
 
 ---
 
@@ -81,3 +91,11 @@ linux-wire/
 
 GNU General Public License v3.0 or later (GPL-3.0-or-later)
 See [LICENSE](./LICENSE) for details.
+
+---
+
+## Notes on the Wire-style API
+
+- The combined overload `Wire.requestFrom(address, quantity, iaddress, isize, sendStop)` is implemented so you can read internal registers without a manual write phase.
+- Traditional repeated-start flows (`beginTransmission` → `write` → `endTransmission(false)` → `requestFrom`) are supported; internally the library issues an `I2C_RDWR` ioctl to keep the STOP condition deferred until the read completes.
+- `Wire.setWireTimeout(timeout_us, reset_on_timeout)` tracks Linux `ETIMEDOUT` errors. If `reset_on_timeout` is true, the bus handle is closed and reopened automatically, matching the semantics of the upstream AVR implementation.

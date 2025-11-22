@@ -26,6 +26,8 @@
 class TwoWire
 {
 public:
+    static constexpr std::size_t INTERNAL_ADDRESS_MAX = 4;
+
     TwoWire();
 
     /**
@@ -83,6 +85,7 @@ public:
      * Request 'quantity' bytes from the given address, optionally specifying 'sendStop'.
      * Returns number of bytes actually read (0 on error).
      */
+    uint8_t requestFrom(uint8_t address, uint8_t quantity, uint32_t iaddress, uint8_t isize, uint8_t sendStop);
     uint8_t requestFrom(uint8_t address, uint8_t quantity, uint8_t sendStop);
     uint8_t requestFrom(uint8_t address, uint8_t quantity);
     uint8_t requestFrom(int address, int quantity);
@@ -107,6 +110,7 @@ private:
     lw_i2c_bus bus_;
     bool bus_open_;
 
+    char devicePath_[LINUX_WIRE_DEVICE_PATH_MAX];
     uint8_t txAddress_;
     bool transmitting_;
 
@@ -124,6 +128,14 @@ private:
 
     void resetTxBuffer();
     void resetRxBuffer();
+    uint8_t requestFrom(uint8_t address,
+                        uint8_t quantity,
+                        const uint8_t *internalAddress,
+                        std::size_t internalAddressLength,
+                        uint8_t sendStop,
+                        bool consumePendingTx);
+    void handleTimeoutFromErrno();
+    bool reopenBus(const char *device);
 };
 
 /* Global instance, as on Arduino */

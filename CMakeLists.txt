@@ -5,6 +5,9 @@ project(linux-wire
     LANGUAGES C CXX
 )
 
+include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
+
 # Options
 option(LINUX_WIRE_BUILD_EXAMPLES "Build example programs" ON)
 
@@ -44,3 +47,36 @@ if(LINUX_WIRE_BUILD_EXAMPLES)
     add_executable(master_reader examples/master_reader/main.cpp)
     target_link_libraries(master_reader PRIVATE linux_wire)
 endif()
+
+install(TARGETS linux_wire
+    EXPORT linux_wireTargets
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+
+install(EXPORT linux_wireTargets
+    FILE linux_wireTargets.cmake
+    NAMESPACE linux_wire::
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/linux_wire
+)
+
+configure_package_config_file(
+    cmake/linux_wireConfig.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/cmake/linux_wireConfig.cmake
+    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/linux_wire
+)
+
+write_basic_package_version_file(
+    ${CMAKE_CURRENT_BINARY_DIR}/cmake/linux_wireConfigVersion.cmake
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion
+)
+
+install(FILES
+    ${CMAKE_CURRENT_BINARY_DIR}/cmake/linux_wireConfig.cmake
+    ${CMAKE_CURRENT_BINARY_DIR}/cmake/linux_wireConfigVersion.cmake
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/linux_wire
+)

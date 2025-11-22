@@ -1,9 +1,11 @@
 #include "Wire.h"
 
+#include <cerrno>
 #include <cstring>
 
 TwoWire::TwoWire()
     : bus_open_(false),
+      devicePath_{0},
       txAddress_(0),
       transmitting_(false),
       txBufferIndex_(0),
@@ -21,13 +23,21 @@ TwoWire::TwoWire()
 
 void TwoWire::begin(const char *device)
 {
-    if (bus_open_)
+    if (!device || device[0] == '\0')
     {
-        // Already open; ignore or re-open if you prefer.
         return;
     }
 
-    if (lw_open_bus(&bus_, device) == 0)
+    if (bus_open_)
+    {
+        lw_close_bus(&bus_);
+        bus_open_ = false;
+    }
+
+    std::strncpy(devicePath_, device, sizeof(devicePath_) - 1);
+    devicePath_[sizeof(devicePath_) - 1] = '\0';
+
+    if (lw_open_bus(&bus_, devicePath_) == 0)
     {
         bus_open_ = true;
     }
@@ -121,6 +131,7 @@ uint8_t TwoWire::endTransmission(uint8_t sendStop)
     // Select slave
     if (lw_set_slave(&bus_, txAddress_) != 0)
     {
+        handleTimeoutFromErrno();
         resetTxBuffer();
         transmitting_ = false;
         return 4;
@@ -143,6 +154,7 @@ uint8_t TwoWire::endTransmission(uint8_t sendStop)
 
     if (written < 0 || static_cast<std::size_t>(written) != txBufferLength_)
     {
+        handleTimeoutFromErrno();
         resetTxBuffer();
         return 4;
     }
@@ -157,83 +169,56 @@ uint8_t TwoWire::endTransmission(void)
     return endTransmission(1);
 }
 
-uint8_t TwoWire::requestFrom(uint8_t address, uint8_t quantity, uint8_t /*sendStop*/)
+uint8_t TwoWire::requestFrom(uint8_t address, uint8_t quantity, uint8_t sendStop)
 {
-    if (!bus_open_)
-    {
-        return 0;
-    }
+    const uint8_t *internal = nullptr;
+    std::size_t internalLen = 0;
+    bool consumePendingTx = false;
 
-    if (quantity == 0)
+    if (txBufferLength_ > 0)
     {
-        return 0;
-    }
-
-    if (quantity > LINUX_WIRE_BUFFER_LENGTH)
-    {
-        quantity = LINUX_WIRE_BUFFER_LENGTH;
-    }
-
-    // If there is a pending TX buffer that was left for a repeated-start
-    // sequence (i.e. beginTransmission + write(...) + endTransmission(false))
-    // then perform a combined write-then-read using the ioctl helper so the
-    // kernel does a repeated-start without an intervening STOP.
-    uint8_t temp[LINUX_WIRE_BUFFER_LENGTH];
-
-    if (txBufferLength_ > 0 && txAddress_ == address)
-    {
-        ssize_t r = lw_ioctl_read(&bus_, address, txBuffer_, txBufferLength_, temp, quantity, 0);
-        /* after a repeated-start combined operation the TX buffer is consumed */
-        resetTxBuffer();
-        if (r <= 0)
+        if (txAddress_ == address)
         {
-            resetRxBuffer();
-            return 0;
+            internal = txBuffer_;
+            internalLen = txBufferLength_;
+            consumePendingTx = true;
         }
-
-        std::size_t received = static_cast<std::size_t>(r);
-        if (received > LINUX_WIRE_BUFFER_LENGTH)
+        else
         {
-            received = LINUX_WIRE_BUFFER_LENGTH;
+            resetTxBuffer();
         }
-
-        std::memcpy(rxBuffer_, temp, received);
-        rxBufferIndex_ = 0;
-        rxBufferLength_ = received;
-
-        return static_cast<uint8_t>(received);
     }
 
-    // Select slave for plain read
-    if (lw_set_slave(&bus_, address) != 0)
-    {
-        resetRxBuffer();
-        return 0;
-    }
-
-    ssize_t r = lw_read(&bus_, temp, quantity);
-    if (r <= 0)
-    {
-        resetRxBuffer();
-        return 0;
-    }
-
-    std::size_t received = static_cast<std::size_t>(r);
-    if (received > LINUX_WIRE_BUFFER_LENGTH)
-    {
-        received = LINUX_WIRE_BUFFER_LENGTH;
-    }
-
-    std::memcpy(rxBuffer_, temp, received);
-    rxBufferIndex_ = 0;
-    rxBufferLength_ = received;
-
-    return static_cast<uint8_t>(received);
+    return requestFrom(address, quantity, internal, internalLen, sendStop, consumePendingTx);
 }
 
 uint8_t TwoWire::requestFrom(uint8_t address, uint8_t quantity)
 {
     return requestFrom(address, quantity, 1);
+}
+
+uint8_t TwoWire::requestFrom(uint8_t address, uint8_t quantity, uint32_t iaddress, uint8_t isize, uint8_t sendStop)
+{
+    if (isize > INTERNAL_ADDRESS_MAX)
+    {
+        isize = INTERNAL_ADDRESS_MAX;
+    }
+
+    resetTxBuffer();
+
+    if (isize == 0)
+    {
+        return requestFrom(address, quantity, nullptr, 0, sendStop, false);
+    }
+
+    uint8_t iaddr_buf[INTERNAL_ADDRESS_MAX] = {0};
+    for (uint8_t i = 0; i < isize; ++i)
+    {
+        const uint8_t shift = (isize - 1U - i) * 8U;
+        iaddr_buf[i] = static_cast<uint8_t>((iaddress >> shift) & 0xFF);
+    }
+
+    return requestFrom(address, quantity, iaddr_buf, isize, sendStop, false);
 }
 
 uint8_t TwoWire::requestFrom(int address, int quantity)
@@ -343,6 +328,117 @@ void TwoWire::resetRxBuffer()
 {
     rxBufferIndex_ = 0;
     rxBufferLength_ = 0;
+}
+
+uint8_t TwoWire::requestFrom(uint8_t address,
+                             uint8_t quantity,
+                             const uint8_t *internalAddress,
+                             std::size_t internalAddressLength,
+                             uint8_t /*sendStop*/,
+                             bool consumePendingTx)
+{
+    if (!bus_open_ || quantity == 0)
+    {
+        if (consumePendingTx)
+        {
+            resetTxBuffer();
+        }
+        return 0;
+    }
+
+    if (quantity > LINUX_WIRE_BUFFER_LENGTH)
+    {
+        quantity = LINUX_WIRE_BUFFER_LENGTH;
+    }
+
+    ssize_t result = 0;
+
+    if (internalAddress && internalAddressLength > 0)
+    {
+        result = lw_ioctl_read(&bus_, address, internalAddress, internalAddressLength, rxBuffer_, quantity, 0);
+    }
+    else
+    {
+        if (lw_set_slave(&bus_, address) != 0)
+        {
+            handleTimeoutFromErrno();
+            resetRxBuffer();
+            if (consumePendingTx)
+            {
+                resetTxBuffer();
+            }
+            return 0;
+        }
+
+        result = lw_read(&bus_, rxBuffer_, quantity);
+    }
+
+    if (consumePendingTx)
+    {
+        resetTxBuffer();
+    }
+
+    if (result <= 0)
+    {
+        handleTimeoutFromErrno();
+        resetRxBuffer();
+        if (consumePendingTx)
+        {
+            resetTxBuffer();
+        }
+        return 0;
+    }
+
+    rxBufferIndex_ = 0;
+    rxBufferLength_ = static_cast<std::size_t>(result);
+    if (rxBufferLength_ > LINUX_WIRE_BUFFER_LENGTH)
+    {
+        rxBufferLength_ = LINUX_WIRE_BUFFER_LENGTH;
+    }
+
+    return static_cast<uint8_t>(rxBufferLength_);
+}
+
+void TwoWire::handleTimeoutFromErrno()
+{
+    if (wireTimeoutUs_ == 0 || errno != ETIMEDOUT)
+    {
+        return;
+    }
+
+    wireTimeoutFlag_ = true;
+    if (wireResetOnTimeout_)
+    {
+        if (!reopenBus(devicePath_))
+        {
+            resetTxBuffer();
+            resetRxBuffer();
+        }
+        else
+        {
+            resetTxBuffer();
+            resetRxBuffer();
+        }
+    }
+}
+
+bool TwoWire::reopenBus(const char *device)
+{
+    if (!device || device[0] == '\0')
+    {
+        bus_open_ = false;
+        return false;
+    }
+
+    lw_close_bus(&bus_);
+    if (lw_open_bus(&bus_, device) == 0)
+    {
+        bus_open_ = true;
+        return true;
+    }
+
+    bus_open_ = false;
+    return false;
 }
 
 /* Global instance */

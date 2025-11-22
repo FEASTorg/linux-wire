@@ -9,11 +9,13 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <limits.h>
 
 int lw_open_bus(lw_i2c_bus *bus, const char *device_path)
 {
-    if (!bus || !device_path)
+    if (!bus || !device_path || device_path[0] == '\0')
     {
+        errno = EINVAL;
         return -1;
     }
 
@@ -74,10 +76,15 @@ ssize_t lw_write(lw_i2c_bus *bus,
 {
     (void)send_stop; /* Currently ignored: each write issues a STOP */
 
-    if (!bus || bus->fd < 0 || !data || len == 0)
+    if (!bus || bus->fd < 0 || (!data && len > 0))
     {
         errno = EINVAL;
         return -1;
+    }
+
+    if (len == 0)
+    {
+        return 0;
     }
 
     ssize_t written = write(bus->fd, data, len);
@@ -92,10 +99,15 @@ ssize_t lw_read(lw_i2c_bus *bus,
                 uint8_t *data,
                 size_t len)
 {
-    if (!bus || bus->fd < 0 || !data || len == 0)
+    if (!bus || bus->fd < 0 || !data)
     {
         errno = EINVAL;
         return -1;
+    }
+
+    if (len == 0)
+    {
+        return 0;
     }
 
     ssize_t r = read(bus->fd, data, len);
@@ -114,11 +126,18 @@ ssize_t lw_ioctl_read(lw_i2c_bus *bus,
                       size_t len,
                       uint16_t flags)
 {
-    if (!bus || bus->fd < 0 || !data || len == 0)
+    if (!bus || bus->fd < 0 || !data || len == 0 || (iaddr_len > 0 && !iaddr))
     {
         errno = EINVAL;
         return -1;
     }
+
+    if (iaddr_len > UINT16_MAX || len > UINT16_MAX)
+    {
+        errno = EINVAL;
+        return -1;
+    }
+
 
     struct i2c_msg msgs[2];
     struct i2c_rdwr_ioctl_data rdwr;
@@ -165,16 +184,25 @@ ssize_t lw_ioctl_write(lw_i2c_bus *bus,
                        size_t len,
                        uint16_t flags)
 {
-    if (!bus || bus->fd < 0 || (iaddr_len == 0 && !data) || (iaddr_len + len == 0))
+    if (!bus || bus->fd < 0 ||
+        (len > 0 && !data) ||
+        (iaddr_len > 0 && !iaddr) ||
+        (iaddr_len + len == 0))
+    {
+        errno = EINVAL;
+        return -1;
+    }
+
+    if (iaddr_len > UINT16_MAX || len > UINT16_MAX)
     {
         errno = EINVAL;
         return -1;
     }
 
     /* Build a single write buffer: [iaddr (optional)] [data]
-       Be cautious about size — a reasonable upper bound is applied here. */
+       Be cautious about size - a reasonable upper bound is applied here. */
     const size_t max_payload = 4096;
-    if (iaddr_len + len > max_payload)
+    if (iaddr_len + len > max_payload || iaddr_len + len > UINT16_MAX)
     {
         errno = EINVAL;
         return -1;
