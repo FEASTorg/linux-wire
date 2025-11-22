@@ -97,5 +97,5 @@ See [LICENSE](./LICENSE) for details.
 ## Notes on the Wire-style API
 
 - The combined overload `Wire.requestFrom(address, quantity, iaddress, isize, sendStop)` is implemented so you can read internal registers without a manual write phase.
-- Traditional repeated-start flows (`beginTransmission` → `write` → `endTransmission(false)` → `requestFrom`) are supported; internally the library issues an `I2C_RDWR` ioctl to keep the STOP condition deferred until the read completes.
+- Traditional repeated-start flows (`beginTransmission` → `write` → `endTransmission(false)` → `requestFrom`) are supported; the pending write bytes are buffered and consumed as part of a single `I2C_RDWR` transaction on the next `requestFrom` to that address. If you call `endTransmission(false)` without following up with `requestFrom`, those buffered bytes are flushed (with a STOP) before the next transmission to avoid silently discarding data.
 - `Wire.setWireTimeout(timeout_us, reset_on_timeout)` tracks Linux `ETIMEDOUT` errors. If `reset_on_timeout` is true, the bus handle is closed and reopened automatically, matching the semantics of the upstream AVR implementation.

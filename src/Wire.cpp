@@ -8,6 +8,7 @@ TwoWire::TwoWire()
       devicePath_{0},
       txAddress_(0),
       transmitting_(false),
+      hasPendingTxForRead_(false),
       txBufferIndex_(0),
       txBufferLength_(0),
       rxBufferIndex_(0),
@@ -30,6 +31,7 @@ void TwoWire::begin(const char *device)
 
     if (bus_open_)
     {
+        flushPendingRepeatedStart();
         lw_close_bus(&bus_);
         bus_open_ = false;
     }
@@ -64,6 +66,7 @@ void TwoWire::end()
 {
     if (bus_open_)
     {
+        flushPendingRepeatedStart();
         lw_close_bus(&bus_);
         bus_open_ = false;
     }
@@ -98,6 +101,7 @@ void TwoWire::clearWireTimeoutFlag(void)
 
 void TwoWire::beginTransmission(uint8_t address)
 {
+    flushPendingRepeatedStart();
     transmitting_ = true;
     txAddress_ = address;
     resetTxBuffer();
@@ -128,6 +132,15 @@ uint8_t TwoWire::endTransmission(uint8_t sendStop)
         return 1; // data too long
     }
 
+    if (sendStop == 0)
+    {
+        transmitting_ = false;
+        hasPendingTxForRead_ = (txBufferLength_ > 0);
+        return 0;
+    }
+
+    flushPendingRepeatedStart();
+
     // Select slave
     if (lw_set_slave(&bus_, txAddress_) != 0)
     {
@@ -135,17 +148,6 @@ uint8_t TwoWire::endTransmission(uint8_t sendStop)
         resetTxBuffer();
         transmitting_ = false;
         return 4;
-    }
-
-    // By default we perform a write which issues a STOP. If a caller passed
-    // sendStop==0 (repeated-start intent) we will not perform the write here
-    // and leave the txBuffer intact so `requestFrom` can consume it in a
-    // combined write-then-read ioctl call (repeated start).
-    if (sendStop == 0)
-    {
-        // We just exit master transmit mode and keep buffer for a repeated-start
-        transmitting_ = false;
-        return 0;
     }
 
     // Normal write + STOP
@@ -175,18 +177,15 @@ uint8_t TwoWire::requestFrom(uint8_t address, uint8_t quantity, uint8_t sendStop
     std::size_t internalLen = 0;
     bool consumePendingTx = false;
 
-    if (txBufferLength_ > 0)
+    if (hasPendingTxForRead_ && txAddress_ == address)
     {
-        if (txAddress_ == address)
-        {
-            internal = txBuffer_;
-            internalLen = txBufferLength_;
-            consumePendingTx = true;
-        }
-        else
-        {
-            resetTxBuffer();
-        }
+        internal = txBuffer_;
+        internalLen = txBufferLength_;
+        consumePendingTx = true;
+    }
+    else if (hasPendingTxForRead_ && txAddress_ != address)
+    {
+        flushPendingRepeatedStart();
     }
 
     return requestFrom(address, quantity, internal, internalLen, sendStop, consumePendingTx);
@@ -331,6 +330,7 @@ void TwoWire::resetTxBuffer()
 {
     txBufferIndex_ = 0;
     txBufferLength_ = 0;
+    hasPendingTxForRead_ = false;
 }
 
 void TwoWire::resetRxBuffer()
@@ -365,6 +365,7 @@ uint8_t TwoWire::requestFrom(uint8_t address,
     if (internalAddress && internalAddressLength > 0)
     {
         result = lw_ioctl_read(&bus_, address, internalAddress, internalAddressLength, rxBuffer_, quantity, 0);
+        hasPendingTxForRead_ = false;
     }
     else
     {
@@ -448,6 +449,41 @@ bool TwoWire::reopenBus(const char *device)
 
     bus_open_ = false;
     return false;
+}
+
+bool TwoWire::flushPendingRepeatedStart()
+{
+    if (!hasPendingTxForRead_)
+    {
+        return true;
+    }
+
+    if (!bus_open_ || txBufferLength_ == 0)
+    {
+        hasPendingTxForRead_ = false;
+        resetTxBuffer();
+        return false;
+    }
+
+    if (lw_set_slave(&bus_, txAddress_) != 0)
+    {
+        handleTimeoutFromErrno();
+        hasPendingTxForRead_ = false;
+        resetTxBuffer();
+        return false;
+    }
+
+    ssize_t written = lw_write(&bus_, txBuffer_, txBufferLength_, 1);
+    hasPendingTxForRead_ = false;
+    if (written < 0 || static_cast<std::size_t>(written) != txBufferLength_)
+    {
+        handleTimeoutFromErrno();
+        resetTxBuffer();
+        return false;
+    }
+
+    resetTxBuffer();
+    return true;
 }
 
 /* Global instance */

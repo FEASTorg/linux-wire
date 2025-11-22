@@ -102,12 +102,37 @@ static void testTimeoutFlagOnReadFailure()
     tw.end();
 }
 
+static void testDeferredWriteFlushes()
+{
+    mockLinuxWireReset();
+
+    TwoWire tw;
+    tw.begin("/dev/i2c-mock");
+
+    tw.beginTransmission(static_cast<uint8_t>(0x22));
+    tw.write(static_cast<uint8_t>(0x55));
+    assert(tw.endTransmission(false) == 0);
+
+    // No requestFrom; starting a new transmission should flush pending data.
+    tw.beginTransmission(static_cast<uint8_t>(0x33));
+
+    const auto &state = mockLinuxWireState();
+    assert(state.writeCalls == 1);
+    assert(state.lastSetSlaveAddr == 0x22);
+    assert(state.lastWriteBuffer.size() == 1);
+    assert(state.lastWriteBuffer[0] == 0x55);
+
+    tw.endTransmission();
+    tw.end();
+}
+
 int main()
 {
     testPlainReadUsesRead();
     testRepeatedStartUsesIoctl();
     testInternalAddressClamp();
     testTimeoutFlagOnReadFailure();
+    testDeferredWriteFlushes();
 
     std::puts("linux_wire tests passed");
     return 0;

@@ -114,6 +114,7 @@ private:
     char devicePath_[LINUX_WIRE_DEVICE_PATH_MAX];
     uint8_t txAddress_;
     bool transmitting_;
+    bool hasPendingTxForRead_;
 
     uint8_t txBuffer_[LINUX_WIRE_BUFFER_LENGTH];
     std::size_t txBufferIndex_;
@@ -137,6 +138,7 @@ private:
                         bool consumePendingTx);
     void handleTimeoutFromErrno();
     bool reopenBus(const char *device);
+    bool flushPendingRepeatedStart();
 };
 
 /* Global instance, as on Arduino */
