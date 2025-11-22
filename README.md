@@ -16,7 +16,6 @@ Example binaries (`i2c_scanner`, `master_reader`, `master_writer`) live under `b
 
 ## Documentation
 
-- [Project goals](./GOAL.md) — what the MVP covers.
 - [Docs index](./docs/index.md) — architecture overview, API examples, CI info.
 - [Testing guide](./docs/testing.md) — running mock-based unit tests and suggested hardware validation steps.
 
