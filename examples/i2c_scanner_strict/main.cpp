@@ -31,9 +31,7 @@ int main()
     for (int address = 0x03; address <= 0x77; ++address)
     {
         Wire.beginTransmission(address);
-        Wire.write(dummy);
-
-        // Suppress the I/O error spam from strict scanning
+        Wire.write(dummy); // force a real write; prevents AVR ACK storms
         uint8_t error = Wire.endTransmission();
 
         if (error == 0)
