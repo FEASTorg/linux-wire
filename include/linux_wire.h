@@ -10,43 +10,104 @@ extern "C"
 #include <stdint.h>
 #include <sys/types.h> /* for ssize_t */
 
-/*
- * Simple I2C bus handle for /dev/i2c-*.
- * This is intentionally minimal for clarity and robustness.
+/**
+ * Maximum length for I2C device path strings.
+ * e.g., "/dev/i2c-1" requires ~12 chars; 64 provides comfortable headroom.
  */
 #ifndef LINUX_WIRE_DEVICE_PATH_MAX
 #define LINUX_WIRE_DEVICE_PATH_MAX 64
 #endif
 
+    /**
+     * Simple I2C bus handle for /dev/i2c-* devices.
+     * This structure is intentionally minimal for clarity and robustness.
+     *
+     * Fields:
+     *   fd          - File descriptor for /dev/i2c-X (or -1 if closed)
+     *   device_path - Path used to open the bus (e.g., "/dev/i2c-1")
+     *   timeout_us  - Timeout value in microseconds (0 = no timeout)
+     *                 Currently informational only; not enforced by implementation
+     */
     typedef struct
     {
-        int fd;                                       /* File descriptor for /dev/i2c-X (or -1 if closed) */
-        char device_path[LINUX_WIRE_DEVICE_PATH_MAX]; /* Path used to open the bus, e.g. "/dev/i2c-1" */
-        uint32_t timeout_us;                          /* Reserved for future timeout behavior; 0 = no timeout */
+        int fd;
+        char device_path[LINUX_WIRE_DEVICE_PATH_MAX];
+        uint32_t timeout_us;
     } lw_i2c_bus;
 
     /**
-     * Open an I2C bus at device_path (e.g. "/dev/i2c-1").
-     * On success, fills 'bus' and returns 0.
-     * On failure, returns -1 and leaves 'bus->fd' == -1.
+     * Open an I2C bus at the specified device path.
+     *
+     * @param bus Pointer to lw_i2c_bus structure to initialize
+     * @param device_path Path to I2C device (e.g., "/dev/i2c-1")
+     *                    Must start with "/dev/i2c-" for security
+     *
+     * @return 0 on success, -1 on error (errno set)
+     *
+     * Error conditions:
+     *   EINVAL - Invalid parameters (NULL pointers, empty path, invalid path format)
+     *   ENOENT - Device file doesn't exist
+     *   EACCES - Permission denied (user may need to be in 'i2c' group)
+     *
+     * On success, bus->fd contains a valid file descriptor.
+     * On failure, bus->fd is set to -1.
+     *
+     * Example:
+     *   lw_i2c_bus bus;
+     *   if (lw_open_bus(&bus, "/dev/i2c-1") == 0) {
+     *       // success
+     *   }
      */
     int lw_open_bus(lw_i2c_bus *bus, const char *device_path);
 
     /**
-     * Close an I2C bus. Safe to call on an already-closed bus.
+     * Close an I2C bus and release its file descriptor.
+     * Safe to call multiple times or on an already-closed bus.
+     *
+     * @param bus Pointer to lw_i2c_bus structure to close
+     *
+     * After calling this function, bus->fd will be set to -1.
      */
     void lw_close_bus(lw_i2c_bus *bus);
 
     /**
-     * Set the I2C slave address for subsequent operations.
-     * Returns 0 on success, -1 on error.
+     * Set the I2C slave address for subsequent read/write operations.
+     *
+     * @param bus Pointer to open lw_i2c_bus
+     * @param addr 7-bit I2C slave address (0x00-0x7F)
+     *
+     * @return 0 on success, -1 on error (errno set)
+     *
+     * Error conditions:
+     *   EBADF  - Bus not open (fd < 0)
+     *   EINVAL - Invalid address
+     *   EBUSY  - Device address already in use
+     *
+     * Note: This uses the I2C_SLAVE ioctl. For 10-bit addressing or
+     *       other advanced features, use the ioctl functions directly.
      */
     int lw_set_slave(lw_i2c_bus *bus, uint8_t addr);
 
     /**
-     * Write 'len' bytes from 'data' to the currently-selected slave.
-     * 'send_stop' is currently accepted but ignored; each call issues a STOP.
-     * Returns number of bytes written on success, or -1 on error.
+     * Write data to the currently-selected I2C slave.
+     *
+     * @param bus Pointer to open lw_i2c_bus
+     * @param data Pointer to data buffer to write
+     * @param len Number of bytes to write
+     * @param send_stop Currently ignored; each write issues a STOP condition
+     *
+     * @return Number of bytes written on success, -1 on error (errno set)
+     *
+     * Error conditions:
+     *   EINVAL   - Invalid parameters
+     *   EBADF    - Bus not open
+     *   ENXIO    - No device at selected address (NACK)
+     *   ETIMEDOUT - Communication timeout
+     *
+     * Note: The send_stop parameter is accepted for API compatibility but
+     *       currently ignored. Linux userspace write() always completes with
+     *       a STOP condition. For repeated-start operations, use lw_ioctl_read()
+     *       or lw_ioctl_write() which support combined transactions.
      */
     ssize_t lw_write(lw_i2c_bus *bus,
                      const uint8_t *data,
@@ -54,26 +115,56 @@ extern "C"
                      int send_stop);
 
     /**
-     * Read up to 'len' bytes into 'data' from the currently-selected slave.
-     * Returns number of bytes read on success, or -1 on error.
+     * Read data from the currently-selected I2C slave.
+     *
+     * @param bus Pointer to open lw_i2c_bus
+     * @param data Pointer to buffer to receive data
+     * @param len Number of bytes to read
+     *
+     * @return Number of bytes read on success, -1 on error (errno set)
+     *
+     * Error conditions:
+     *   EINVAL   - Invalid parameters
+     *   EBADF    - Bus not open
+     *   ENXIO    - No device at selected address (NACK)
+     *   ETIMEDOUT - Communication timeout
+     *
+     * Note: Make sure to call lw_set_slave() before reading.
      */
     ssize_t lw_read(lw_i2c_bus *bus,
                     uint8_t *data,
                     size_t len);
 
     /**
-     * Perform a combined read that optionally sends an internal device address
-     * (as a write message) followed by a read message in a single I2C_RDWR ioctl
-     * transaction. This supports repeated-start style reads (no intervening STOP)
-     * and is useful for reading device registers.
+     * Perform a combined I2C read with optional internal address write.
+     * This implements repeated-start read operations without an intervening STOP.
      *
-     * Parameters:
-     *  - addr: 7/10-bit device address
-     *  - iaddr: pointer to internal address bytes to send before the read (may be NULL)
-     *  - iaddr_len: number of internal address bytes (0 if none)
-     *  - data: destination buffer for read data
-     *  - len: number of bytes to read
-     *  - flags: bitfield passed to i2c_msg.flags (allows I2C_M_TEN, I2C_M_IGNORE_NAK, etc.)
+     * @param bus Pointer to open lw_i2c_bus
+     * @param addr 7-bit (or 10-bit) device address
+     * @param iaddr Pointer to internal address bytes (register address)
+     * @param iaddr_len Number of internal address bytes (0 = no internal address)
+     * @param data Pointer to buffer to receive data
+     * @param len Number of bytes to read
+     * @param flags Bitfield for i2c_msg.flags (e.g., I2C_M_TEN for 10-bit addressing)
+     *
+     * @return Number of bytes read on success, -1 on error (errno set)
+     *
+     * Error conditions:
+     *   EINVAL   - Invalid parameters or size limits exceeded
+     *   EBADF    - Bus not open
+     *   ENXIO    - No device at address (NACK)
+     *   EOVERFLOW - Size calculation overflow
+     *
+     * This function is useful for reading device registers:
+     *   uint8_t reg_addr = 0x10;
+     *   uint8_t data[2];
+     *   lw_ioctl_read(&bus, 0x40, &reg_addr, 1, data, 2, 0);
+     *
+     * Internally, this uses the I2C_RDWR ioctl with two messages:
+     *   1. Write message with internal address (if iaddr_len > 0)
+     *   2. Read message for data
+     *
+     * The transaction completes atomically without an intervening STOP.
      */
     ssize_t lw_ioctl_read(lw_i2c_bus *bus,
                           uint16_t addr,
@@ -84,9 +175,34 @@ extern "C"
                           uint16_t flags);
 
     /**
-     * Perform a write using the I2C_RDWR ioctl. This allows writing an internal
-     * register address and follow-up data in a single message and supports flags
-     * (e.g. 10-bit addressing or ignoring NAK).
+     * Perform an I2C write with optional internal address using I2C_RDWR ioctl.
+     * This allows writing a register address followed by data in a single message.
+     *
+     * @param bus Pointer to open lw_i2c_bus
+     * @param addr 7-bit (or 10-bit) device address
+     * @param iaddr Pointer to internal address bytes (register address)
+     * @param iaddr_len Number of internal address bytes (0 = no internal address)
+     * @param data Pointer to data buffer to write
+     * @param len Number of data bytes to write
+     * @param flags Bitfield for i2c_msg.flags (e.g., I2C_M_TEN for 10-bit addressing)
+     *
+     * @return Number of data bytes written (not including internal address) on success,
+     *         -1 on error (errno set)
+     *
+     * Error conditions:
+     *   EINVAL    - Invalid parameters or size limits exceeded
+     *   EBADF     - Bus not open
+     *   ENOMEM    - Memory allocation failed (for large transfers)
+     *   ENXIO     - No device at address (NACK)
+     *   EOVERFLOW - Size calculation overflow
+     *
+     * Example (write 0xFF to register 0x10 of device at 0x40):
+     *   uint8_t reg = 0x10;
+     *   uint8_t value = 0xFF;
+     *   lw_ioctl_write(&bus, 0x40, &reg, 1, &value, 1, 0);
+     *
+     * Performance note: For transfers <= 256 bytes, this function uses stack
+     * allocation. Larger transfers use heap allocation (malloc/free).
      */
     ssize_t lw_ioctl_write(lw_i2c_bus *bus,
                            uint16_t addr,
@@ -97,9 +213,16 @@ extern "C"
                            uint16_t flags);
 
     /**
-     * Store a timeout value (in microseconds).
-     * Currently this is informational only; no timeout enforcement is done.
-     * Returns 0.
+     * Set timeout value for I2C operations.
+     *
+     * @param bus Pointer to lw_i2c_bus
+     * @param timeout_us Timeout value in microseconds (0 = no timeout)
+     *
+     * @return 0 on success, -1 on error
+     *
+     * Note: This is currently informational only and not enforced by the
+     *       implementation. Future versions may use select/poll to implement
+     *       actual timeout behavior. The value is stored in bus->timeout_us.
      */
     int lw_set_timeout(lw_i2c_bus *bus, uint32_t timeout_us);
 

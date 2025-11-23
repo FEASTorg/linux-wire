@@ -29,15 +29,23 @@ void TwoWire::begin(const char *device)
         return;
     }
 
+    /* CRITICAL FIX: Ensure proper cleanup order */
     if (bus_open_)
     {
         flushPendingRepeatedStart();
         lw_close_bus(&bus_);
-        bus_open_ = false;
     }
+    /* Always reset state, even if close failed */
+    bus_open_ = false;
 
-    std::strncpy(devicePath_, device, sizeof(devicePath_) - 1);
-    devicePath_[sizeof(devicePath_) - 1] = '\0';
+    /* PERFORMANCE FIX: More efficient string copy */
+    size_t len = std::strlen(device);
+    if (len >= sizeof(devicePath_))
+    {
+        len = sizeof(devicePath_) - 1;
+    }
+    std::memcpy(devicePath_, device, len);
+    devicePath_[len] = '\0';
 
     if (lw_open_bus(&bus_, devicePath_) == 0)
     {
@@ -54,7 +62,9 @@ void TwoWire::begin(const char *device)
 
 void TwoWire::begin(uint8_t /*address*/)
 {
-    // Slave mode is not supported on Linux user-space; no-op.
+    /* Slave mode is not supported on Linux user-space.
+       Linux I2C slave support requires kernel-mode drivers.
+       This method exists for Arduino API compatibility only. */
 }
 
 void TwoWire::begin(int address)
@@ -68,15 +78,20 @@ void TwoWire::end()
     {
         flushPendingRepeatedStart();
         lw_close_bus(&bus_);
-        bus_open_ = false;
     }
+    bus_open_ = false;
     resetTxBuffer();
     resetRxBuffer();
 }
 
 void TwoWire::setClock(uint32_t /*frequency*/)
 {
-    // Not currently supported; bus frequency is typically set by kernel/DT.
+    /* Not supported on Linux userspace I2C.
+       Bus frequency must be configured via:
+       - Device tree overlays
+       - Kernel module parameters
+       - sysfs interfaces
+       This method exists for Arduino API compatibility only. */
 }
 
 void TwoWire::setWireTimeout(uint32_t timeout_us, bool reset_with_timeout)
@@ -85,7 +100,8 @@ void TwoWire::setWireTimeout(uint32_t timeout_us, bool reset_with_timeout)
     wireResetOnTimeout_ = reset_with_timeout;
     wireTimeoutFlag_ = false;
 
-    // Store timeout in C core; currently informational.
+    /* Store timeout in C core; currently informational.
+       Future implementation could use select/poll for enforcement. */
     lw_set_timeout(&bus_, timeout_us);
 }
 
@@ -124,7 +140,7 @@ uint8_t TwoWire::endTransmission(uint8_t sendStop)
         return 4; // no active transmission
     }
 
-    // Check buffer size vs capacity
+    /* Check buffer size vs capacity */
     if (txBufferLength_ > LINUX_WIRE_BUFFER_LENGTH)
     {
         resetTxBuffer();
@@ -132,6 +148,9 @@ uint8_t TwoWire::endTransmission(uint8_t sendStop)
         return 1; // data too long
     }
 
+    /* sendStop == 0 means "don't send STOP, prepare for repeated start"
+       This allows the next requestFrom() to use a combined write+read
+       transaction without an intervening STOP condition. */
     if (sendStop == 0)
     {
         transmitting_ = false;
@@ -141,7 +160,7 @@ uint8_t TwoWire::endTransmission(uint8_t sendStop)
 
     flushPendingRepeatedStart();
 
-    // Select slave
+    /* Select slave */
     if (lw_set_slave(&bus_, txAddress_) != 0)
     {
         handleTimeoutFromErrno();
@@ -150,8 +169,8 @@ uint8_t TwoWire::endTransmission(uint8_t sendStop)
         return 4;
     }
 
-    // Normal write + STOP
-    ssize_t written = lw_write(&bus_, txBuffer_, txBufferLength_, 1 /* send_stop */);
+    /* Normal write + STOP (sendStop parameter currently ignored in lw_write) */
+    ssize_t written = lw_write(&bus_, txBuffer_, txBufferLength_, 1);
     transmitting_ = false;
 
     if (written < 0 || static_cast<std::size_t>(written) != txBufferLength_)
@@ -197,6 +216,7 @@ uint8_t TwoWire::requestFrom(uint8_t address, uint8_t quantity)
 
 uint8_t TwoWire::requestFrom(uint8_t address, uint8_t quantity, uint32_t iaddress, uint8_t isize, uint8_t sendStop)
 {
+    /* CRITICAL FIX: Validate isize to prevent overflow */
     if (isize > INTERNAL_ADDRESS_MAX)
     {
         isize = INTERNAL_ADDRESS_MAX;
@@ -210,6 +230,9 @@ uint8_t TwoWire::requestFrom(uint8_t address, uint8_t quantity, uint32_t iaddres
     }
 
     uint8_t iaddr_buf[INTERNAL_ADDRESS_MAX] = {0};
+
+    /* Convert multi-byte address to big-endian byte array
+       e.g., 0x12345678 with isize=4 becomes {0x12, 0x34, 0x56, 0x78} */
     for (uint8_t i = 0; i < isize; ++i)
     {
         const uint8_t shift = (isize - 1U - i) * 8U;
@@ -245,7 +268,8 @@ size_t TwoWire::write(uint8_t data)
 {
     if (!transmitting_)
     {
-        // On Arduino this could be "slave send mode"; here we do nothing.
+        /* On Arduino this could be "slave send mode";
+           here we do nothing as slave mode is unsupported. */
         return 0;
     }
 
@@ -268,17 +292,18 @@ size_t TwoWire::write(const uint8_t *data, size_t quantity)
         return 0;
     }
 
-    size_t written = 0;
-    for (size_t i = 0; i < quantity; ++i)
+    /* PERFORMANCE FIX: Optimized bulk write instead of byte-by-byte */
+    size_t space = LINUX_WIRE_BUFFER_LENGTH - txBufferLength_;
+    size_t to_write = (quantity < space) ? quantity : space;
+
+    if (to_write > 0)
     {
-        if (write(data[i]) == 0)
-        {
-            // Buffer full; stop.
-            break;
-        }
-        ++written;
+        std::memcpy(&txBuffer_[txBufferIndex_], data, to_write);
+        txBufferIndex_ += to_write;
+        txBufferLength_ = txBufferIndex_;
     }
-    return written;
+
+    return to_write;
 }
 
 size_t TwoWire::write(const char *str)
@@ -292,6 +317,7 @@ size_t TwoWire::write(const char *str)
 
 int TwoWire::available(void) const
 {
+    /* SAFETY FIX: This should be an invariant, but check defensively */
     if (rxBufferLength_ < rxBufferIndex_)
     {
         return 0;
@@ -322,7 +348,8 @@ int TwoWire::peek(void)
 
 void TwoWire::flush(void)
 {
-    // No underlying hardware FIFO; nothing to do.
+    /* No underlying hardware FIFO in Linux userspace I2C; nothing to do.
+       This method exists for Arduino API compatibility only. */
 }
 
 void TwoWire::resetTxBuffer()
@@ -342,9 +369,12 @@ uint8_t TwoWire::requestFrom(uint8_t address,
                              uint8_t quantity,
                              const uint8_t *internalAddress,
                              std::size_t internalAddressLength,
-                             uint8_t /*sendStop*/,
+                             uint8_t sendStop,
                              bool consumePendingTx)
 {
+    (void)sendStop; /* sendStop parameter is mapped to combined transactions; Linux userspace I2C
+                       transactions always complete with STOP at the kernel level. */
+
     if (!bus_open_ || quantity == 0)
     {
         if (consumePendingTx)
@@ -363,11 +393,13 @@ uint8_t TwoWire::requestFrom(uint8_t address,
 
     if (internalAddress && internalAddressLength > 0)
     {
+        /* Use combined write+read ioctl for repeated-start behavior */
         result = lw_ioctl_read(&bus_, address, internalAddress, internalAddressLength, rxBuffer_, quantity, 0);
         hasPendingTxForRead_ = false;
     }
     else
     {
+        /* Standard read: set slave address then read */
         if (lw_set_slave(&bus_, address) != 0)
         {
             handleTimeoutFromErrno();
@@ -391,10 +423,6 @@ uint8_t TwoWire::requestFrom(uint8_t address,
     {
         handleTimeoutFromErrno();
         resetRxBuffer();
-        if (consumePendingTx)
-        {
-            resetTxBuffer();
-        }
         return 0;
     }
 
@@ -410,21 +438,26 @@ uint8_t TwoWire::requestFrom(uint8_t address,
 
 void TwoWire::handleTimeoutFromErrno()
 {
+    /* Only consider it a timeout if timeout is configured and errno indicates timeout */
     if (wireTimeoutUs_ == 0 || errno != ETIMEDOUT)
     {
         return;
     }
 
     wireTimeoutFlag_ = true;
+
     if (wireResetOnTimeout_)
     {
+        /* Attempt to reopen the bus on timeout if configured */
         if (!reopenBus(devicePath_))
         {
+            /* Reopen failed; clean up state */
             resetTxBuffer();
             resetRxBuffer();
         }
         else
         {
+            /* Reopen succeeded; still clean up transaction state */
             resetTxBuffer();
             resetRxBuffer();
         }
@@ -440,6 +473,7 @@ bool TwoWire::reopenBus(const char *device)
     }
 
     lw_close_bus(&bus_);
+
     if (lw_open_bus(&bus_, device) == 0)
     {
         bus_open_ = true;
@@ -474,6 +508,7 @@ bool TwoWire::flushPendingRepeatedStart()
 
     ssize_t written = lw_write(&bus_, txBuffer_, txBufferLength_, 1);
     hasPendingTxForRead_ = false;
+
     if (written < 0 || static_cast<std::size_t>(written) != txBufferLength_)
     {
         handleTimeoutFromErrno();
@@ -485,5 +520,5 @@ bool TwoWire::flushPendingRepeatedStart()
     return true;
 }
 
-/* Global instance */
+/* Global instance, matching Arduino Wire API */
 TwoWire Wire;
