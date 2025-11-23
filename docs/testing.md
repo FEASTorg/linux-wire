@@ -24,7 +24,7 @@ Tests covered:
 
 While the mock tests catch logic regressions, you should run hardware checks before tagging releases. Suggested workflow:
 
-1. **Setup**: Attach an I²C peripheral to `/dev/i2c-1` (Raspberry Pi or other Linux SBC). Ensure `i2c-dev` is loaded (`sudo modprobe i2c-dev`).
+1. **Setup**: Attach an I²C peripheral to `/dev/i2c-1`. We provide a ready-made Arduino Nano sketch in [docs/example.md](./example.md) that acts as a simple slave at address `0x40`. Ensure `i2c-dev` is loaded (`sudo modprobe i2c-dev`).
 2. **Scanner**: From the `build` directory, run `./i2c_scanner`. Confirm your device address appears.
 3. **Writer**: Edit `examples/master_writer/main.cpp` with your device address/register, rebuild (`cmake --build build`), and run `./master_writer`.
 4. **Reader / Repeated Start**: Use `examples/master_reader/main.cpp` to read back a register. It demonstrates `endTransmission(false)` + `requestFrom()` repeated-start flow.
