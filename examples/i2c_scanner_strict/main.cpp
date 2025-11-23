@@ -1,20 +1,18 @@
 /*
+ *
  * i2c_scanner_strict
  *
- * A stricter I²C scanner for Linux systems.
+ * A stricter I2C scanner for Linux. It writes one dummy byte before STOP,
  *
- * Unlike the standard Linux scan (which performs a zero-byte write probe),
- * this version forces a *data phase* by writing one dummy byte before STOP.
+ * ensuring a real data-phase ACK instead of accepting address-only ACKs.
  *
- * This avoids false positives from devices that ACK the address phase of
- * a write-only probe but would NACK when actual data is sent.  A common
- * example are AVR-based Arduino boards running Wire slave mode, whose TWI
- * hardware ACKs all addresses during quick-write probes.
+ * This prevents false positives from devices that ACK address probes but
  *
- * This scanner is therefore useful when:
- *   - you are scanning a bus that contains AVR/ATmega Wire slaves, or
- *   - you want to verify devices that may reject data-phase writes,
- *   - you want a “true ACK” that requires both address ACK + data write ACK.
+ * would NACK real writes (e.g., AVR/ATmega Wire slaves).
+ *
+ * Useful when scanning buses with AVR Wire devices or when verifying that
+ *
+ * a device acknowledges both the address and the data phase.
  */
 
 #include <cstdio>
