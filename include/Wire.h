@@ -47,6 +47,7 @@ public:
     static constexpr std::size_t INTERNAL_ADDRESS_MAX = 4;
 
     TwoWire();
+    ~TwoWire();
 
     /* Delete copy operations - this class manages OS resources (file descriptor) */
     TwoWire(const TwoWire &) = delete;
@@ -279,6 +280,12 @@ private:
  *   Wire.beginTransmission(0x40);
  *   Wire.write(data);
  *   Wire.endTransmission();
+ *
+ * THREAD SAFETY WARNING:
+ *   This global instance is NOT thread-safe. Do not access from multiple
+ *   threads without external synchronization (e.g., mutex).
+ *   For multi-threaded applications, create separate TwoWire instances
+ *   per thread, each with its own device path.
  *
  * Note: Only one global instance is provided. For multiple I2C buses,
  *       create separate TwoWire instances and call begin() with different

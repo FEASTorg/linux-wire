@@ -2,6 +2,7 @@
 
 #include <cerrno>
 #include <cstring>
+#include <cassert>
 
 TwoWire::TwoWire()
     : bus_open_(false),
@@ -22,6 +23,11 @@ TwoWire::TwoWire()
     bus_.timeout_us = 0;
 }
 
+TwoWire::~TwoWire()
+{
+    end();
+}
+
 void TwoWire::begin(const char *device)
 {
     if (!device || device[0] == '\0')
@@ -29,16 +35,17 @@ void TwoWire::begin(const char *device)
         return;
     }
 
-    /* CRITICAL FIX: Ensure proper cleanup order */
+    /* Clean up existing connection fully before attempting new one */
     if (bus_open_)
     {
         flushPendingRepeatedStart();
+        resetTxBuffer();
+        resetRxBuffer();
         lw_close_bus(&bus_);
+        bus_open_ = false;
     }
-    /* Always reset state, even if close failed */
-    bus_open_ = false;
 
-    /* PERFORMANCE FIX: More efficient string copy */
+    /* Copy device path */
     size_t len = std::strlen(device);
     if (len >= sizeof(devicePath_))
     {
@@ -47,17 +54,13 @@ void TwoWire::begin(const char *device)
     std::memcpy(devicePath_, device, len);
     devicePath_[len] = '\0';
 
+    /* Attempt to open - if this fails, state is already clean */
     if (lw_open_bus(&bus_, devicePath_) == 0)
     {
         bus_open_ = true;
+        resetTxBuffer();
+        resetRxBuffer();
     }
-    else
-    {
-        bus_open_ = false;
-    }
-
-    resetTxBuffer();
-    resetRxBuffer();
 }
 
 void TwoWire::begin(uint8_t /*address*/)
@@ -317,11 +320,7 @@ size_t TwoWire::write(const char *str)
 
 int TwoWire::available(void) const
 {
-    /* SAFETY FIX: This should be an invariant, but check defensively */
-    if (rxBufferLength_ < rxBufferIndex_)
-    {
-        return 0;
-    }
+    assert(rxBufferIndex_ <= rxBufferLength_ && "Buffer index invariant violated");
     return static_cast<int>(rxBufferLength_ - rxBufferIndex_);
 }
 
@@ -372,8 +371,19 @@ uint8_t TwoWire::requestFrom(uint8_t address,
                              uint8_t sendStop,
                              bool consumePendingTx)
 {
-    (void)sendStop; /* sendStop parameter is mapped to combined transactions; Linux userspace I2C
-                       transactions always complete with STOP at the kernel level. */
+    (void)sendStop; /* sendStop is currently ignored. Linux userspace I2C
+                       transactions always complete with STOP. The repeated-start
+                       behavior is emulated via I2C_RDWR ioctl with combined messages. */
+
+    /* CRITICAL: Validate internal address length to prevent overflow */
+    if (internalAddressLength > INTERNAL_ADDRESS_MAX)
+    {
+        if (consumePendingTx)
+        {
+            resetTxBuffer();
+        }
+        return 0;
+    }
 
     if (!bus_open_ || quantity == 0)
     {
@@ -446,21 +456,24 @@ void TwoWire::handleTimeoutFromErrno()
 
     wireTimeoutFlag_ = true;
 
-    if (wireResetOnTimeout_)
+    /* Prevent infinite recursion if reopenBus also times out */
+    static bool in_timeout_handler = false;
+
+    if (wireResetOnTimeout_ && !in_timeout_handler)
     {
+        in_timeout_handler = true;
+
         /* Attempt to reopen the bus on timeout if configured */
         if (!reopenBus(devicePath_))
         {
-            /* Reopen failed; clean up state */
-            resetTxBuffer();
-            resetRxBuffer();
+            bus_open_ = false;
         }
-        else
-        {
-            /* Reopen succeeded; still clean up transaction state */
-            resetTxBuffer();
-            resetRxBuffer();
-        }
+
+        /* Always clean up transaction state */
+        resetTxBuffer();
+        resetRxBuffer();
+
+        in_timeout_handler = false;
     }
 }
 

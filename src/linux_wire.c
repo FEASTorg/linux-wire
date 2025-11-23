@@ -33,7 +33,26 @@ int lw_open_bus(lw_i2c_bus *bus, const char *device_path)
         return -1;
     }
 
+    /* Additional security: Verify remainder is only digits */
+    const char *p = device_path + 9;
+    if (!*p)
+    {
+        errno = EINVAL;
+        return -1;
+    }
+
+    while (*p)
+    {
+        if (*p < '0' || *p > '9')
+        {
+            errno = EINVAL;
+            return -1;
+        }
+        p++;
+    }
+
     int fd = open(device_path, O_RDWR);
+
     if (fd < 0)
     {
         int saved_errno = errno;
@@ -289,11 +308,13 @@ ssize_t lw_ioctl_write(lw_i2c_bus *bus,
     {
         int saved_errno = errno;
         perror("lw_ioctl_write: I2C_RDWR");
-        errno = saved_errno;
+
         if (heap_allocated)
         {
             free(buf);
         }
+
+        errno = saved_errno; /* Restore errno AFTER free() */
         return -1;
     }
 
