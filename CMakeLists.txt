@@ -43,6 +43,9 @@ if(LINUX_WIRE_BUILD_EXAMPLES)
     add_executable(i2c_scanner examples/i2c_scanner/main.cpp)
     target_link_libraries(i2c_scanner PRIVATE linux_wire)
 
+    add_executable(i2c_scanner_strict examples/i2c_scanner_strict/main.cpp)
+    target_link_libraries(i2c_scanner_strict PRIVATE linux_wire)
+
     add_executable(master_writer examples/master_writer/main.cpp)
     target_link_libraries(master_writer PRIVATE linux_wire)
 

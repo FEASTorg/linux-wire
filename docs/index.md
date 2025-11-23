@@ -11,12 +11,20 @@ Key design points:
 - Repeated-start reads are implemented via a combined `I2C_RDWR` ioctl so register reads behave like the AVR Wire reference.
 - Internal TX/RX buffers stay fixed-size for deterministic behavior.
 
-For the full project goals, see [GOAL.md](../GOAL.md). For a quick summary and project tree, see [README.md](../README.md).
+For a quick summary and project tree, see [README.md](../README.md).
 
 ## Building
 
+Run the configuration and build steps from the project root:
+
 ```sh
+# standard build:
+cmake -S . -B build
+# with tests:
 cmake -S . -B build -DBUILD_TESTING=ON
+# or with examples:
+cmake -S . -B build -DLINUX_WIRE_BUILD_EXAMPLES=ON
+# then build:
 cmake --build build
 ```
 
@@ -25,6 +33,19 @@ Notes:
 - The project ships a `linux_wire` static library plus three example executables: `i2c_scanner`, `master_reader`, and `master_writer`.
 - On Linux, no additional link libraries are typically needed beyond `pthread`/`rt` provided by the toolchain.
 - `cmake --install build --prefix <dest>` installs headers into `<dest>/include` and exports a `linux_wire::linux_wire` CMake target so downstream projects can simply `find_package(linux_wire CONFIG REQUIRED)`.
+
+## Running Examples
+
+After building, the example binaries live under `build/`:
+
+```sh
+# Scan for devices on /dev/i2c-1:
+sudo ./build/i2c_scanner /dev/i2c-1
+# Read 2 bytes from register 0x00 of device at 0x40:
+sudo ./build/master_reader /dev/i2c-1 0x40 0x00 2
+# Write 3 bytes (0x01, 0x02, 0x03) to register 0x00 of device at 0x40:
+sudo ./build/master_writer /dev/i2c-1 0x40 0x00 0x01 0x02 0x03
+```
 
 ## Usage Guide
 
