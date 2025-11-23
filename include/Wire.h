@@ -256,6 +256,7 @@ private:
     uint32_t wireTimeoutUs_;
     bool wireTimeoutFlag_;
     bool wireResetOnTimeout_;
+    bool inTimeoutHandler_;
 
     void resetTxBuffer();
     void resetRxBuffer();

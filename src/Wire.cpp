@@ -16,7 +16,8 @@ TwoWire::TwoWire()
       rxBufferLength_(0),
       wireTimeoutUs_(0),
       wireTimeoutFlag_(false),
-      wireResetOnTimeout_(false)
+      wireResetOnTimeout_(false),
+      inTimeoutHandler_(false)
 {
     bus_.fd = -1;
     bus_.device_path[0] = '\0';
@@ -457,11 +458,9 @@ void TwoWire::handleTimeoutFromErrno()
     wireTimeoutFlag_ = true;
 
     /* Prevent infinite recursion if reopenBus also times out */
-    static bool in_timeout_handler = false;
-
-    if (wireResetOnTimeout_ && !in_timeout_handler)
+    if (wireResetOnTimeout_ && !inTimeoutHandler_)
     {
-        in_timeout_handler = true;
+        inTimeoutHandler_ = true;
 
         /* Attempt to reopen the bus on timeout if configured */
         if (!reopenBus(devicePath_))
@@ -473,7 +472,7 @@ void TwoWire::handleTimeoutFromErrno()
         resetTxBuffer();
         resetRxBuffer();
 
-        in_timeout_handler = false;
+        inTimeoutHandler_ = false;
     }
 }
 
