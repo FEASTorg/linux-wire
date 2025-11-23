@@ -1,4 +1,4 @@
-# linux-wire API Reference
+# API Reference
 
 This document summarizes the public interfaces exposed by linux-wire. For usage examples and build instructions, see [docs/index.md](./index.md).
 

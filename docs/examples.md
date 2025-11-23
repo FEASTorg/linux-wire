@@ -1,8 +1,10 @@
-# Arduino Peripheral Companion Example
+# Examples
+
+## Arduino Peripheral Companion Example
 
 Use this sketch to emulate a simple I²C slave that works with the `linux-wire` examples (`i2c_scanner`, `master_reader`, `master_writer`, `master_multiplier`). Flash it onto an Arduino (Nano/Uno) and connect it to your Raspberry Pi via a bidirectional level shifter.
 
-## Wiring
+### Wiring
 
 | Raspberry Pi (3.3V) | Level Shifter | Arduino (5V) |
 | ------------------- | ------------- | ------------ |
@@ -13,7 +15,7 @@ Use this sketch to emulate a simple I²C slave that works with the `linux-wire` 
 
 Keep the grounds common across the Pi, shifter, and Arduino.
 
-## Sketch
+### Sketch
 
 ```cpp
 #include <Wire.h>

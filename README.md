@@ -24,7 +24,7 @@ Example binaries (`i2c_scanner`, `master_reader`, `master_writer`) live under `b
 - [Docs index](./docs/index.md) — architecture overview, API examples, CI info.
 - [API reference](./docs/api.md) — detailed class and method documentation.
 - [Testing guide](./docs/testing.md) — running mock-based unit tests and suggested hardware validation steps.
-- [Arduino companion](./docs/example.md) — ready-made Nano sketch for hardware loopback testing.
+- [Arduino companion](docs/examples.md) — ready-made Nano sketch for hardware loopback testing.
 
 ## License
 
