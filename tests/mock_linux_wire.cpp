@@ -70,6 +70,7 @@ extern "C"
         std::strncpy(bus->device_path, device_path, LINUX_WIRE_DEVICE_PATH_MAX - 1);
         bus->device_path[LINUX_WIRE_DEVICE_PATH_MAX - 1] = '\0';
         bus->timeout_us = 0;
+        bus->log_errors = g_state.logErrors;
         g_state.lastDevicePath = device_path;
         return 0;
     }
@@ -159,9 +160,19 @@ ssize_t lw_ioctl_write(lw_i2c_bus * /*bus*/,
     return static_cast<ssize_t>(len);
 }
 
-    int lw_set_timeout(lw_i2c_bus * /*bus*/, uint32_t timeout_us)
+int lw_set_timeout(lw_i2c_bus * /*bus*/, uint32_t timeout_us)
+{
+    (void)timeout_us;
+    return 0;
+}
+
+void lw_set_error_logging(lw_i2c_bus *bus, int enable)
+{
+    g_state.logErrors = enable ? 1 : 0;
+    if (bus)
     {
-        (void)timeout_us;
-        return 0;
+        bus->log_errors = g_state.logErrors;
     }
+}
+
 } // extern "C"

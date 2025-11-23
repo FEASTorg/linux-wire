@@ -207,6 +207,23 @@ static void testZeroInternalAddressFallback()
     tw.end();
 }
 
+static void testErrorLoggingToggle()
+{
+    mockLinuxWireReset();
+
+    TwoWire tw;
+    tw.begin("/dev/i2c-mock");
+    assert(mockLinuxWireState().logErrors == 1);
+
+    tw.setErrorLogging(false);
+    assert(mockLinuxWireState().logErrors == 0);
+
+    tw.setErrorLogging(true);
+    assert(mockLinuxWireState().logErrors == 1);
+
+    tw.end();
+}
+
 int main()
 {
     testPlainReadUsesRead();
@@ -217,6 +234,7 @@ int main()
     testTxBufferOverflow();
     testFlushOnDifferentAddress();
     testZeroInternalAddressFallback();
+    testErrorLoggingToggle();
 
     std::puts("linux_wire tests passed");
     return 0;

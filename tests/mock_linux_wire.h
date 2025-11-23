@@ -15,6 +15,7 @@ struct MockLinuxWireState
     std::vector<uint8_t> lastWriteBuffer;
     bool lastWriteWasIoctl = false;
     uint8_t lastWriteSlaveAddr = 0;
+    int logErrors = 1;
     int readCalls = 0;
     std::vector<uint8_t> lastReadBuffer;
     int ioctlReadCalls = 0;
