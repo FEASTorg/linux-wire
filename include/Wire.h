@@ -122,6 +122,12 @@ public:
     void clearWireTimeoutFlag(void);
 
     /**
+     * Enable or disable error messages printed by the low-level I2C helpers.
+     * Useful when deliberately probing addresses that will NACK (e.g., strict scanner).
+     */
+    void setErrorLogging(bool enable);
+
+    /**
      * Begin a master transmission to the specified I2C address.
      *
      * @param address 7-bit I2C slave address

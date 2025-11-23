@@ -76,6 +76,7 @@ int lw_open_bus(lw_i2c_bus *bus, const char *device_path)
     bus->device_path[path_len] = '\0';
 
     bus->timeout_us = 0;
+    bus->log_errors = 1;
 
     return 0;
 }
@@ -106,7 +107,10 @@ int lw_set_slave(lw_i2c_bus *bus, uint8_t addr)
     if (ioctl(bus->fd, I2C_SLAVE, addr) < 0)
     {
         int saved_errno = errno;
-        perror("lw_set_slave: I2C_SLAVE");
+        if (bus->log_errors)
+        {
+            perror("lw_set_slave: I2C_SLAVE");
+        }
         errno = saved_errno;
         return -1;
     }
@@ -138,7 +142,10 @@ ssize_t lw_write(lw_i2c_bus *bus,
     if (written < 0)
     {
         int saved_errno = errno;
-        perror("lw_write: write");
+        if (bus->log_errors)
+        {
+            perror("lw_write: write");
+        }
         errno = saved_errno;
     }
     return written;
@@ -163,7 +170,10 @@ ssize_t lw_read(lw_i2c_bus *bus,
     if (r < 0)
     {
         int saved_errno = errno;
-        perror("lw_read: read");
+        if (bus->log_errors)
+        {
+            perror("lw_read: read");
+        }
         errno = saved_errno;
     }
     return r;
@@ -219,7 +229,10 @@ ssize_t lw_ioctl_read(lw_i2c_bus *bus,
     if (ioctl(bus->fd, I2C_RDWR, &rdwr) < 0)
     {
         int saved_errno = errno;
-        perror("lw_ioctl_read: I2C_RDWR");
+        if (bus->log_errors)
+        {
+            perror("lw_ioctl_read: I2C_RDWR");
+        }
         errno = saved_errno;
         return -1;
     }
@@ -307,8 +320,10 @@ ssize_t lw_ioctl_write(lw_i2c_bus *bus,
     if (ioctl(bus->fd, I2C_RDWR, &rdwr) < 0)
     {
         int saved_errno = errno;
-        perror("lw_ioctl_write: I2C_RDWR");
-
+        if (bus->log_errors)
+        {
+            perror("lw_ioctl_write: I2C_RDWR");
+        }
         if (heap_allocated)
         {
             free(buf);
@@ -336,4 +351,13 @@ int lw_set_timeout(lw_i2c_bus *bus, uint32_t timeout_us)
     bus->timeout_us = timeout_us;
     /* Currently no enforcement; placeholder for future poll/select logic. */
     return 0;
+}
+
+void lw_set_error_logging(lw_i2c_bus *bus, int enable)
+{
+    if (!bus)
+    {
+        return;
+    }
+    bus->log_errors = enable ? 1 : 0;
 }

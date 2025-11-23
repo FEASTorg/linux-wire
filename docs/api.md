@@ -30,6 +30,7 @@ typedef struct
 | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
 | `ssize_t lw_write(lw_i2c_bus *bus, const uint8_t *data, size_t len, int send_stop);` | Writes `len` bytes via `write(2)`. `send_stop` is accepted for parity with the C++ API but always issues a STOP. |
 | `ssize_t lw_read(lw_i2c_bus *bus, uint8_t *data, size_t len);`                       | Reads up to `len` bytes via `read(2)`.                                                                           |
+| `void lw_set_error_logging(lw_i2c_bus *bus, int enable);`                            | Enable (`enable != 0`) or suppress (`enable == 0`) `perror` logging for that bus handle.                         |
 
 Both functions return the number of bytes processed or `-1` on error (`errno` set).
 
@@ -58,6 +59,7 @@ The helper validates inputs (non-null buffers, length ≤ 4096, etc.) before cal
 | `void setClock(uint32_t frequency);`                                                 | Currently a no-op (bus speed is controlled by the kernel).                                                                                         |
 | `void setWireTimeout(uint32_t timeout_us = 25000, bool reset_with_timeout = false);` | Stores a timeout threshold; when the underlying I/O reports `ETIMEDOUT`, `getWireTimeoutFlag()` becomes true and (optionally) the bus is reopened. |
 | `bool getWireTimeoutFlag() const;` / `void clearWireTimeoutFlag();`                  | Query/reset the timeout flag.                                                                                                                      |
+| `void setErrorLogging(bool enable);`                                                 | Toggle low-level `perror` logging (handy when probing addresses that are expected to NACK).                                                        |
 
 ### Master Transmit
 

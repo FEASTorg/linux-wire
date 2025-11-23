@@ -33,6 +33,7 @@ extern "C"
         int fd;
         char device_path[LINUX_WIRE_DEVICE_PATH_MAX];
         uint32_t timeout_us;
+        int log_errors;
     } lw_i2c_bus;
 
     /**
@@ -225,6 +226,14 @@ extern "C"
      *       actual timeout behavior. The value is stored in bus->timeout_us.
      */
     int lw_set_timeout(lw_i2c_bus *bus, uint32_t timeout_us);
+
+    /**
+     * Enable or disable perror logging for a given bus.
+     *
+     * @param bus Pointer to lw_i2c_bus
+     * @param enable Non-zero to enable logging, zero to suppress
+     */
+    void lw_set_error_logging(lw_i2c_bus *bus, int enable);
 
 #ifdef __cplusplus
 }

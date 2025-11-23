@@ -21,6 +21,7 @@
 int main()
 {
     Wire.begin("/dev/i2c-1");
+    Wire.setErrorLogging(false);
 
     printf("Strict scanning I2C bus /dev/i2c-1...\n");
 

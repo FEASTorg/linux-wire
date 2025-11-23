@@ -1,6 +1,6 @@
 # Examples
 
-## Arduino Peripheral Companion Example
+## Arduino Peripheral Companion
 
 Use this sketch to emulate a simple I²C slave that works with the `linux-wire` examples (`i2c_scanner`, `master_reader`, `master_writer`, `master_multiplier`). Flash it onto an Arduino (Nano/Uno) and connect it to your Raspberry Pi via a bidirectional level shifter.
 
@@ -50,13 +50,13 @@ void setup()
 
 void loop()
 {
-    // all work handled in the Wire callbacks
+    // callbacks handle all traffic
 }
 ```
 
-This builds the same behavior that the Arduino `Wire` examples use: whatever byte the master last wrote will be returned on the next read.
+This mirrors the stock Arduino `Wire` slave examples: whatever byte the master last wrote will be returned on the next read.
 
-## Test Flow
+### Test Flow
 
 1. Flash the sketch and connect the Nano to the Pi via the level shifter.
 2. On the Pi (with `linux-wire` built):
@@ -65,12 +65,12 @@ This builds the same behavior that the Arduino `Wire` examples use: whatever byt
    cd build
    sudo ./i2c_scanner            # should report the device at 0x40
    sudo ./master_writer          # writes a test pattern to the Nano
-   sudo ./master_reader          # reads it back (check serial monitor on the Nano to confirm activity)
-   sudo ./master_multiplier      # optional: writes and reads a rolling pattern
+   sudo ./master_reader          # reads it back
+   sudo ./master_multiplier      # optional rolling pattern test
    ```
 
-   Each binary accepts optional command-line arguments (`./master_writer --help`) if you need to change bus name or address.
+   Each binary accepts optional command-line arguments (`--help`) if you need to change bus, address, or payload.
 
-3. Use the Arduino Serial Monitor at 115200 baud to watch the `master_writer` / `master_reader` interaction (the example sketch prints the values it sees).
+3. Use the Arduino Serial Monitor at 115200 baud if you’d like to watch activity while debugging (optional).
 
-This setup gives you a deterministic loopback peripheral for debugging and CI smoke tests without relying on external sensors.\*\*\*
+This loopback peripheral gives you deterministic end-to-end coverage without relying on external sensors.\*\*\*

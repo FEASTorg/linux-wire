@@ -2,7 +2,7 @@
 
 ## Unit Tests (Mocked)
 
-The `tests/` directory contains host-only tests that mock the `lw_*` functions. These ensure buffer semantics, repeated-start flows, and timeout flags work as expected without hardware.
+The `tests/` directory contains host-only tests that replace the low-level `lw_*` functions with mocks. They exercise buffer semantics, repeated-start flows, timeout handling, and the strict scanner behavior.
 
 ### Running locally
 
@@ -14,30 +14,33 @@ ctest --test-dir build --output-on-failure
 
 Tests covered:
 
-- Plain `requestFrom` using `lw_read`.
-- Repeated-start reads that reuse the buffered TX bytes through `lw_ioctl_read`.
-- Internal register helper (`requestFrom(addr, qty, iaddress, isize, sendStop)`).
-- Timeout flag propagation when `lw_read` reports `ETIMEDOUT`.
-- Deferred write flushing when `endTransmission(false)` isn't followed by a read.
+- Plain `requestFrom` using `lw_read`
+- Repeated-start reads via `lw_ioctl_read`
+- Internal register helper (`requestFrom(addr, qty, iaddress, isize, sendStop)`)
+- Timeout flag propagation when `lw_read` reports `ETIMEDOUT`
+- Deferred write flushing when `endTransmission(false)` is not followed by a read
+- Strict scanner write failures (logging suppressed in that binary)
+- Basic negative-path checks for the C API (`lw_open_bus`, `lw_write`, `lw_ioctl_write`, etc.)
 
 ## Hardware Tests
 
-While the mock tests catch logic regressions, you should run hardware checks before tagging releases. Suggested workflow:
+Mock tests catch logic regressions, but you should still validate on real hardware before tagging releases:
 
-1. **Setup**: Attach an I²C peripheral to `/dev/i2c-1`. We provide a ready-made Arduino Nano sketch in [docs/example.md](examples.md) that acts as a simple slave at address `0x40`. Ensure `i2c-dev` is loaded (`sudo modprobe i2c-dev`).
-2. **Scanner**: From the `build` directory, run `./i2c_scanner`. Confirm your device address appears.
-3. **Writer**: Edit `examples/master_writer/main.cpp` with your device address/register, rebuild (`cmake --build build`), and run `./master_writer`.
-4. **Reader / Repeated Start**: Use `examples/master_reader/main.cpp` to read back a register. It demonstrates `endTransmission(false)` + `requestFrom()` repeated-start flow.
-5. **Custom Tests**: For more involved devices, embed the `linux_wire` library into your firmware/application and run device-specific validation.
+1. **Setup**: Attach an I2C peripheral to `/dev/i2c-1`. You can use the Arduino companion sketch in [examples](./examples.md), which exposes a simple slave at `0x40`. Ensure `i2c-dev` is loaded (`sudo modprobe i2c-dev`).
+2. **Scanner**: From `build/`, run `sudo ./i2c_scanner`. Confirm your peripheral shows up (the Arduino sketch will report at `0x40`).
+3. **Writer**: Run `sudo ./master_writer` (or pass `--help` to adjust bus/address/register). Watch the Arduino serial log to confirm the byte was received.
+4. **Reader / Repeated Start**: Run `sudo ./master_reader`. It performs `endTransmission(false)` followed by `requestFrom()`, verifying the repeated-start path.
+5. **Extended exercise**: `sudo ./master_multiplier` writes a rolling pattern, then reads it back, providing a simple stress test.
+6. **Custom tests**: Integrate `linux_wire` into your application and validate against the target device(s).
 
 ## Continuous Integration
 
-`.github/workflows/ci.yml` ensures every push/PR to `main` builds/tests on `ubuntu-22.04`. The workflow steps:
+`.github/workflows/ci.yml` runs on `ubuntu-22.04` for every push/PR targeting `main`. Steps:
 
-1. Checkout.
-2. Install `cmake`, `ninja-build`, and `g++`.
-3. Configure with `cmake -G Ninja -DBUILD_TESTING=ON`.
-4. Build all targets.
-5. Run `ctest`.
+1. Checkout
+2. Install `cmake`, `ninja-build`, `gcc`, `g++`
+3. `cmake -S . -B build -G Ninja -DBUILD_TESTING=ON`
+4. `cmake --build build`
+5. `ctest --test-dir build --output-on-failure`
 
-The CI log is a good indicator that the mock tests, examples, and packaging are intact. Always run hardware tests manually, as CI cannot access real devices.
+CI ensures both the library and tests build cleanly on a baseline similar to Raspberry Pi OS. Always run the hardware checks above before releasing.***

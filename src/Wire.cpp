@@ -22,6 +22,7 @@ TwoWire::TwoWire()
     bus_.fd = -1;
     bus_.device_path[0] = '\0';
     bus_.timeout_us = 0;
+    bus_.log_errors = 1;
 }
 
 TwoWire::~TwoWire()
@@ -117,6 +118,11 @@ bool TwoWire::getWireTimeoutFlag(void) const
 void TwoWire::clearWireTimeoutFlag(void)
 {
     wireTimeoutFlag_ = false;
+}
+
+void TwoWire::setErrorLogging(bool enable)
+{
+    lw_set_error_logging(&bus_, enable ? 1 : 0);
 }
 
 void TwoWire::beginTransmission(uint8_t address)
