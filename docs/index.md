@@ -26,6 +26,10 @@ cmake -S . -B build -DBUILD_TESTING=ON
 cmake -S . -B build -DLINUX_WIRE_BUILD_EXAMPLES=ON
 # then build:
 cmake --build build
+# optionally install:
+cmake --install build --prefix /desired/install/path
+# clean build files:
+cmake --build build --target clean
 ```
 
 Notes:
