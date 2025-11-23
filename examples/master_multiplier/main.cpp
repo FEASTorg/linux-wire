@@ -2,6 +2,15 @@
 #include <unistd.h> // for usleep
 #include "Wire.h"
 
+/*
+Expected output:
+```
+Pi → Nano Multiplier Test
+Sending X=7
+Received R=35 (expected 35)
+```
+*/
+
 static constexpr uint8_t DEVICE_ADDR = 0x40;
 
 int main()

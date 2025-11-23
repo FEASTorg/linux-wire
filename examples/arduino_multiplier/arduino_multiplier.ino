@@ -1,5 +1,14 @@
 #include <Wire.h>
 
+/*
+Expected output:
+```
+HH:MM:SS.mmm -> I2C Multiplier Slave at 0x40
+HH:MM:SS.mmm -> RX X=7  →  stored R=35
+HH:MM:SS.mmm -> TX R=35
+```
+*/
+
 static const uint8_t DEVICE_ADDRESS = 0x40;
 
 // Holds latest multiplied result (X * 5)
