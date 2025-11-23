@@ -18,6 +18,7 @@ int main(void)
     lw_i2c_bus bus;
     memset(&bus, 0, sizeof(bus));
     bus.fd = -1;
+    bus.log_errors = 1;
 
     EXPECT_ERR(lw_open_bus(NULL, "/dev/null"), EINVAL);
     EXPECT_ERR(lw_open_bus(&bus, ""), EINVAL);
@@ -37,6 +38,11 @@ int main(void)
     EXPECT_ERR(lw_ioctl_write(&bus, 0x20, NULL, 1, &byte, 1, 0), EINVAL);
     EXPECT_ERR(lw_ioctl_write(&bus, 0x20, &byte, 1, NULL, 1, 0), EINVAL);
     EXPECT_ERR(lw_ioctl_write(&bus, 0x20, NULL, 0, NULL, 0, 0), EINVAL);
+
+    lw_set_error_logging(&bus, 0);
+    assert(bus.log_errors == 0);
+    lw_set_error_logging(&bus, 1);
+    assert(bus.log_errors == 1);
 
     return 0;
 }
