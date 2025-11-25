@@ -30,25 +30,44 @@ on:
       - "**/*.hpp"
 
 jobs:
-  build:
-    strategy:
-      matrix:
-        os: [ubuntu-22.04, debian-trixie]
-    runs-on: ${{ matrix.os == 'ubuntu-22.04' && 'ubuntu-22.04' || 'ubuntu-latest' }}
-
-    container: ${{ matrix.os == 'debian-trixie' && 'debian:trixie' || '' }}
+  # -------------------------
+  # Native Ubuntu Build
+  # -------------------------
+  build-ubuntu:
+    name: Build (Ubuntu 22.04)
+    runs-on: ubuntu-22.04
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install dependencies (Ubuntu)
-        if: matrix.os == 'ubuntu-22.04'
+      - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake ninja-build gcc g++
 
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DBUILD_TESTING=ON
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+  # -------------------------
+  # Debian Trixie (Container)
+  # -------------------------
+  build-debian-trixie:
+    name: Build (Debian Trixie Container)
+    runs-on: ubuntu-latest
+
+    container:
+      image: debian:trixie
+
+    steps:
+      - uses: actions/checkout@v4
+
       - name: Install dependencies (Debian Trixie)
-        if: matrix.os == 'debian-trixie'
         run: |
           apt-get update
           apt-get install -y cmake ninja-build gcc g++
@@ -62,9 +81,13 @@ jobs:
       - name: Test
         run: ctest --test-dir build --output-on-failure
 
+  # -------------------------
+  # Native ARM64 Build (GitHub ARM64 runner)
+  # -------------------------
   build-arm64:
     name: Build (ARM64)
-    runs-on: ubuntu-22.04-arm64    # native ARM64 runner beta support
+    runs-on: ubuntu-22.04-arm
+
     steps:
       - uses: actions/checkout@v4
 
