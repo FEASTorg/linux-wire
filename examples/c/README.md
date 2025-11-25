@@ -1,22 +1,21 @@
-Examples — C
-===============
+# Examples — C
 
-Purpose
--------
+## Purpose
+
 This folder contains small C example programs that exercise the linux-wire C API (examples/cpp are the C++ equivalents).
 
-Safety first — read before running
--------------------------------
-- These examples talk to /dev/i2c-* devices. That is literal hardware (buses and devices).
+## Safety first — read before running
+
+- These examples talk to /dev/i2c-\* devices. That is literal hardware (buses and devices).
 - Scanning and writing may change device state and can harm peripherals. Do NOT run write examples against hardware you don't own/understand.
 
-Permissions and access
-----------------------
+## Permissions and access
+
 - Prefer running as an unprivileged user that belongs to the `i2c` group. If you need elevated permissions, use sudo.
 - Example device path: `/dev/i2c-1`. Adjust to your platform (e.g. `/dev/i2c-0` or other bus numbers).
 
-How to build and run
---------------------
+## How to build and run
+
 1. From the project root:
 
    ```sh
@@ -31,12 +30,12 @@ How to build and run
    - `master_reader_c` — read a register (repeated-start)
    - `master_multiplier_c` — demo request/response
 
-Quick safety checklist
----------------------
+## Quick safety checklist
+
 - Confirm the correct bus file exists (e.g., `ls /dev/i2c-*`).
 - Prefer the strict scanner if you need to avoid false positives, but be aware it performs writes.
 - Never run write examples unless you know the target device address and register behavior.
 
-Questions/Problems
------------------
+## Questions/Problems
+
 If you hit permission or device-not-found errors, check group membership, device path, and that the I2C kernel driver is loaded.
