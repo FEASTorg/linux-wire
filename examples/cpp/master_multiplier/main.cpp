@@ -1,5 +1,6 @@
 #include <cstdio>
-#include <time.h>
+#include <thread>
+#include <chrono>
 #include "Wire.h"
 
 /*
@@ -33,8 +34,7 @@ int main()
     }
 
     // Wait briefly to allow the Nano to process the value (~1ms)
-    struct timespec ts = { .tv_sec = 0, .tv_nsec = 1000 * 1000 };
-    nanosleep(&ts, NULL);
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
     // Request 1 byte back
     uint8_t count = Wire.requestFrom(DEVICE_ADDR, (uint8_t)1);

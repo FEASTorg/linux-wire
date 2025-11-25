@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <sys/types.h>
+#include <unistd.h>
 #include "linux_wire.h"
 
 static const uint16_t DEVICE_ADDR = 0x40;

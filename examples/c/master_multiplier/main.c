@@ -3,9 +3,11 @@
  * Sends a byte to a device and reads the response (expected multiply result).
  */
 
+#define _POSIX_C_SOURCE 199309L
 #include <stdio.h>
 #include <stdint.h>
 #include <sys/types.h>
+#include <unistd.h>
 #include <time.h>
 #include "linux_wire.h"
 
