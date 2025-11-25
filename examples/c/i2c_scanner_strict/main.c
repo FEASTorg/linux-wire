@@ -1,6 +1,18 @@
-/*
+ /*
+ *
  * C example: i2c_scanner_strict
- * A stricter scanner that writes a dummy byte to ensure a real ACK on the data phase.
+ *
+ * A stricter I2C scanner for Linux. It writes one dummy byte before STOP,
+ *
+ * ensuring a real data-phase ACK instead of accepting address-only ACKs.
+ *
+ * This prevents false positives from devices that ACK address probes but
+ *
+ * would NACK real writes (e.g., AVR/ATmega Wire slaves).
+ *
+ * Useful when scanning buses with AVR Wire devices or when verifying that
+ *
+ * a device acknowledges both the address and the data phase.
  */
 
 #include <stdio.h>

@@ -1,6 +1,6 @@
 /*
  *
- * i2c_scanner_strict
+ * Cpp example: i2c_scanner_strict
  *
  * A stricter I2C scanner for Linux. It writes one dummy byte before STOP,
  *
