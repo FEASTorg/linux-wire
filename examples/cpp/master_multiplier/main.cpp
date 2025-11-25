@@ -1,5 +1,5 @@
 #include <cstdio>
-#include <unistd.h> // for usleep
+#include <time.h>
 #include "Wire.h"
 
 /*
@@ -32,8 +32,9 @@ int main()
         return 1;
     }
 
-    // Wait briefly to allow the Nano to process the value
-    usleep(1000); // 1 ms is enough for AVR callbacks
+    // Wait briefly to allow the Nano to process the value (~1ms)
+    struct timespec ts = { .tv_sec = 0, .tv_nsec = 1000 * 1000 };
+    nanosleep(&ts, NULL);
 
     // Request 1 byte back
     uint8_t count = Wire.requestFrom(DEVICE_ADDR, (uint8_t)1);

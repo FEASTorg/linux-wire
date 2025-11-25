@@ -61,3 +61,28 @@ jobs:
 
       - name: Test
         run: ctest --test-dir build --output-on-failure
+
+  build-arm64:
+    name: Build (ARM64)
+    runs-on: ubuntu-22.04
+    container:
+      image: ubuntu:22.04
+      # request ARM64 emulation — GitHub runners will use qemu for multiarch containers
+      options: --platform linux/arm64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          apt-get update
+          apt-get install -y cmake ninja-build gcc g++ libc6-dev
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DBUILD_TESTING=ON
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure

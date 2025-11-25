@@ -5,7 +5,8 @@
 
 #include <stdio.h>
 #include <stdint.h>
-#include <unistd.h>
+#include <sys/types.h>
+#include <time.h>
 #include "linux_wire.h"
 
 static const uint16_t DEVICE_ADDR = 0x40;
@@ -31,7 +32,9 @@ int main(void)
         return 1;
     }
 
-    usleep(1000); /* small delay to let peripheral respond */
+    /* sleep ~1ms */
+    struct timespec ts = { .tv_sec = 0, .tv_nsec = 1000 * 1000 };
+    nanosleep(&ts, NULL);
 
     uint8_t result = 0;
     ssize_t r = lw_ioctl_read(&bus, DEVICE_ADDR, NULL, 0, &result, 1, 0);

@@ -5,6 +5,7 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <sys/types.h>
 #include "linux_wire.h"
 
 int main(void)
