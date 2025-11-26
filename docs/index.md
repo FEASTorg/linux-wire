@@ -18,7 +18,7 @@ For a quick summary and project tree, see [README.md](../README.md).
 Run the configuration and build steps from the project root:
 
 ```sh
-# standard build:
+# standard build config:
 cmake -S . -B build
 # with tests:
 cmake -S . -B build -DBUILD_TESTING=ON
