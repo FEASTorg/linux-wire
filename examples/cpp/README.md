@@ -15,11 +15,13 @@ Small C++ example programs that use the TwoWire (Wire) interface provided by lin
 Build from the repo root:
 
 ```sh
-cmake -S . -B build -G Ninja -DBUILD_TESTING=ON
-cmake --build build
+cmake --preset dev
+cmake --build --preset dev
 ```
 
-Representative binary names (in `build/`):
+Presets require CMake 3.20 or newer. If you are on an older CMake, the raw `cmake -S . -B build` flow remains supported as a fallback.
+
+Representative binary names (in `build/dev/`):
 
 - `i2c_scanner_cpp`
 - `i2c_scanner_strict_cpp`

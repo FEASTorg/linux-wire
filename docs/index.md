@@ -15,40 +15,48 @@ For a quick summary and project tree, see [README.md](../README.md).
 
 ## Building
 
-Run the configuration and build steps from the project root:
+Run the canonical preset-based flows from the project root:
 
 ```sh
-# standard build config:
-cmake -S . -B build
-# with tests:
-cmake -S . -B build -DBUILD_TESTING=ON
-# or with examples:
-cmake -S . -B build -DLINUX_WIRE_BUILD_EXAMPLES=ON
-# then build:
-cmake --build build
-# optionally install:
-cmake --install build --prefix /desired/install/path
-# clean build files:
-cmake --build build --target clean
+# default contributor build
+cmake --preset dev
+cmake --build --preset dev
+ctest --preset dev
+
+# optimized full build
+cmake --preset release
+cmake --build --preset release
+ctest --preset release
+
+# lean consumer-style build
+cmake --preset minimal
+cmake --build --preset minimal
+
+# optionally install the dev build
+cmake --install build/dev --prefix /desired/install/path
+
+# clean one configured build tree
+cmake --build --preset dev --target clean
 ```
 
 Notes:
 
-- The project ships a `linux_wire` static library plus three example executables: `i2c_scanner`, `master_reader`, and `master_writer`.
+- The project ships a `linux_wire` static library plus C and C++ example executables when examples are enabled.
 - On Linux, no additional link libraries are typically needed beyond `pthread`/`rt` provided by the toolchain.
-- `cmake --install build --prefix <dest>` installs headers into `<dest>/include` and exports a `linux_wire::linux_wire` CMake target so downstream projects can simply `find_package(linux_wire CONFIG REQUIRED)`.
+- `cmake --install build/<preset> --prefix <dest>` installs headers into `<dest>/include` and exports a `linux_wire::linux_wire` CMake target so downstream projects can simply `find_package(linux_wire CONFIG REQUIRED)`.
+- Presets require CMake 3.20 or newer. If you are on an older CMake, the raw `cmake -S . -B build` flow remains supported as a fallback.
 
 ## Running Examples
 
-After building, the example binaries live under `build/`:
+After building with `dev` or `release`, the example binaries live under that preset's build tree:
 
 ```sh
 # Scan for devices on /dev/i2c-1:
-sudo ./build/i2c_scanner /dev/i2c-1
+sudo ./build/dev/i2c_scanner_cpp /dev/i2c-1
 # Read 2 bytes from register 0x00 of device at 0x40:
-sudo ./build/master_reader /dev/i2c-1 0x40 0x00 2
+sudo ./build/dev/master_reader_cpp /dev/i2c-1 0x40 0x00 2
 # Write 3 bytes (0x01, 0x02, 0x03) to register 0x00 of device at 0x40:
-sudo ./build/master_writer /dev/i2c-1 0x40 0x00 0x01 0x02 0x03
+sudo ./build/dev/master_writer_cpp /dev/i2c-1 0x40 0x00 0x01 0x02 0x03
 ```
 
 ## Usage Guide
@@ -98,7 +106,7 @@ Important Arduino-parity notes:
 Software-only tests live in `tests/`. They use a mock `lw_*` backend to exercise buffer management, repeated-start logic, deferred-write failure handling, and timeout handling without real hardware:
 
 ```sh
-ctest --test-dir build --output-on-failure
+ctest --preset dev
 ```
 
 For hardware validation (recommended before release):
@@ -111,7 +119,7 @@ See [docs/testing.md](./testing.md) for detailed steps.
 
 ## CI
 
-GitHub Actions runs on `ubuntu-22.04` (closest to Raspberry Pi OS Bookworm). The workflow installs CMake/Ninja/g++ and executes the build + test steps automatically on every push/PR targeting `main`.
+GitHub Actions runs on `ubuntu-22.04` (closest to Raspberry Pi OS Bookworm). The workflow installs CMake/Ninja/g++ and executes the canonical `dev` preset build + test flow automatically on every push/PR targeting `main`.
 
 ## License
 

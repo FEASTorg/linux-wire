@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "CMakeLists.txt"
+      - "CMakePresets.json"
       - ".github/workflows/ci.yml"
       - "src/**"
       - "include/**"
@@ -19,6 +20,7 @@ on:
     branches: [main]
     paths:
       - "CMakeLists.txt"
+      - "CMakePresets.json"
       - ".github/workflows/ci.yml"
       - "src/**"
       - "include/**"
@@ -46,13 +48,13 @@ jobs:
           sudo apt-get install -y cmake ninja-build gcc g++
 
       - name: Configure
-        run: cmake -S . -B build -G Ninja -DBUILD_TESTING=ON
+        run: cmake --preset dev
 
       - name: Build
-        run: cmake --build build
+        run: cmake --build --preset dev
 
       - name: Test
-        run: ctest --test-dir build --output-on-failure
+        run: ctest --preset dev
 
   # -------------------------
   # Debian Trixie (Container)
@@ -73,13 +75,13 @@ jobs:
           apt-get install -y cmake ninja-build gcc g++
 
       - name: Configure
-        run: cmake -S . -B build -G Ninja -DBUILD_TESTING=ON
+        run: cmake --preset dev
 
       - name: Build
-        run: cmake --build build
+        run: cmake --build --preset dev
 
       - name: Test
-        run: ctest --test-dir build --output-on-failure
+        run: ctest --preset dev
 
   # -------------------------
   # Native ARM64 Build (GitHub ARM64 runner)
@@ -97,10 +99,10 @@ jobs:
           sudo apt-get install -y cmake ninja-build gcc g++ libc6-dev
 
       - name: Configure
-        run: cmake -S . -B build -G Ninja -DBUILD_TESTING=ON
+        run: cmake --preset dev
 
       - name: Build
-        run: cmake --build build
+        run: cmake --build --preset dev
 
       - name: Test
-        run: ctest --test-dir build --output-on-failure
+        run: ctest --preset dev

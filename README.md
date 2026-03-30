@@ -11,14 +11,29 @@ linux-wire is a minimal Linux-native I2C abstraction that mirrors Arduino's `Wir
 ## Quick Start
 
 ```sh
-cmake -S . -B build -DBUILD_TESTING=ON
-cmake --build build
-ctest --test-dir build --output-on-failure
+cmake --preset dev
+cmake --build --preset dev
+ctest --preset dev
 ```
 
-Use `cmake --install build` to install headers and the static library; downstream CMake projects can simply `find_package(linux_wire CONFIG REQUIRED)` and link against `linux_wire::linux_wire`.
+Other canonical builds:
 
-Example binaries (`i2c_scanner`, `master_reader`, `master_writer`, `master_multiplier`) live under `build/` after compiling.
+```sh
+# optimized full build
+cmake --preset release
+cmake --build --preset release
+ctest --preset release
+
+# lean consumer-style build
+cmake --preset minimal
+cmake --build --preset minimal
+```
+
+Use `cmake --install build/dev` to install the default preset build, or pass `--prefix` as needed. Downstream CMake projects can then `find_package(linux_wire CONFIG REQUIRED)` and link against `linux_wire::linux_wire`.
+
+Presets require CMake 3.20 or newer. If you are on an older CMake, the raw `cmake -S . -B build` flow remains supported as a fallback.
+
+Example binaries for the default contributor build live under `build/dev/` after compiling.
 
 ## Documentation
 

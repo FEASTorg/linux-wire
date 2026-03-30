@@ -19,11 +19,13 @@ This folder contains small C example programs that exercise the linux-wire C API
 1. From the project root:
 
    ```sh
-   cmake -S . -B build -G Ninja -DBUILD_TESTING=ON
-   cmake --build build
+   cmake --preset dev
+   cmake --build --preset dev
    ```
 
-2. Examples are built into the top-level `build/` directory with names like:
+   Presets require CMake 3.20 or newer. If you are on an older CMake, the raw `cmake -S . -B build` flow remains supported as a fallback.
+
+2. Examples are built into `build/dev/` with names like:
    - `i2c_scanner_c` — quick probe (uses ioctl combined read)
    - `i2c_scanner_strict_c` — stricter probe (forces a data write)
    - `master_writer_c` — write a register

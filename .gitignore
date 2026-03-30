@@ -43,6 +43,7 @@
 # Build files
 build/
 build-*/
+CMakeUserPresets.json
 
 # personal work files
 planning/

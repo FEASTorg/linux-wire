@@ -7,10 +7,12 @@ The `tests/` directory contains host-only tests that replace the low-level `lw_*
 ### Running locally
 
 ```sh
-cmake -S . -B build -DBUILD_TESTING=ON
-cmake --build build
-ctest --test-dir build --output-on-failure
+cmake --preset dev
+cmake --build --preset dev
+ctest --preset dev
 ```
+
+Presets require CMake 3.20 or newer. If you are on an older CMake, the raw `cmake -S . -B build` flow remains supported as a fallback.
 
 Tests covered:
 
@@ -19,8 +21,9 @@ Tests covered:
 - Internal register helper (`requestFrom(addr, qty, iaddress, isize, sendStop)`)
 - Timeout flag propagation when `lw_read` reports `ETIMEDOUT`
 - Deferred write flushing when `endTransmission(false)` is not followed by a read
+- Deferred write failure handling before follow-on operations
 - Strict scanner write failures (logging suppressed in that binary)
-- Basic negative-path checks for the C API (`lw_open_bus`, `lw_write`, `lw_ioctl_write`, etc.)
+- Basic negative-path checks for the C API (`lw_open_bus`, `lw_write`, `lw_ioctl_write`, closed-handle errno handling, etc.)
 
 ## Hardware Tests
 
@@ -39,8 +42,8 @@ Mock tests catch logic regressions, but you should still validate on real hardwa
 
 1. Checkout
 2. Install `cmake`, `ninja-build`, `gcc`, `g++`
-3. `cmake -S . -B build -G Ninja -DBUILD_TESTING=ON`
-4. `cmake --build build`
-5. `ctest --test-dir build --output-on-failure`
+3. `cmake --preset dev`
+4. `cmake --build --preset dev`
+5. `ctest --preset dev`
 
-CI ensures both the library and tests build cleanly on a baseline similar to Raspberry Pi OS. Always run the hardware checks above before releasing.***
+CI ensures both the library and tests build cleanly on a baseline similar to Raspberry Pi OS. Always run the hardware checks above before releasing.
