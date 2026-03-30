@@ -18,9 +18,30 @@
 /* Maximum payload for ioctl operations */
 #define LW_MAX_IOCTL_PAYLOAD 4096
 
+static void lw_reset_bus_handle(lw_i2c_bus *bus)
+{
+    if (!bus)
+    {
+        return;
+    }
+
+    bus->fd = -1;
+    bus->device_path[0] = '\0';
+    bus->timeout_us = 0;
+    bus->log_errors = 1;
+}
+
 int lw_open_bus(lw_i2c_bus *bus, const char *device_path)
 {
-    if (!bus || !device_path || device_path[0] == '\0')
+    if (!bus)
+    {
+        errno = EINVAL;
+        return -1;
+    }
+
+    lw_reset_bus_handle(bus);
+
+    if (!device_path || device_path[0] == '\0')
     {
         errno = EINVAL;
         return -1;
@@ -57,9 +78,6 @@ int lw_open_bus(lw_i2c_bus *bus, const char *device_path)
     {
         int saved_errno = errno;
         perror("lw_open_bus: open");
-        bus->fd = -1;
-        bus->device_path[0] = '\0';
-        bus->timeout_us = 0;
         errno = saved_errno;
         return -1;
     }
@@ -98,9 +116,21 @@ void lw_close_bus(lw_i2c_bus *bus)
 
 int lw_set_slave(lw_i2c_bus *bus, uint8_t addr)
 {
-    if (!bus || bus->fd < 0)
+    if (!bus)
+    {
+        errno = EINVAL;
+        return -1;
+    }
+
+    if (bus->fd < 0)
     {
         errno = EBADF;
+        return -1;
+    }
+
+    if (addr > 0x7F)
+    {
+        errno = EINVAL;
         return -1;
     }
 
@@ -127,7 +157,19 @@ ssize_t lw_write(lw_i2c_bus *bus,
                         Linux userspace I2C doesn't provide fine-grained
                         control over STOP conditions via write() */
 
-    if (!bus || bus->fd < 0 || (!data && len > 0))
+    if (!bus)
+    {
+        errno = EINVAL;
+        return -1;
+    }
+
+    if (bus->fd < 0)
+    {
+        errno = EBADF;
+        return -1;
+    }
+
+    if (!data && len > 0)
     {
         errno = EINVAL;
         return -1;
@@ -155,7 +197,19 @@ ssize_t lw_read(lw_i2c_bus *bus,
                 uint8_t *data,
                 size_t len)
 {
-    if (!bus || bus->fd < 0 || !data)
+    if (!bus)
+    {
+        errno = EINVAL;
+        return -1;
+    }
+
+    if (bus->fd < 0)
+    {
+        errno = EBADF;
+        return -1;
+    }
+
+    if (!data && len > 0)
     {
         errno = EINVAL;
         return -1;
@@ -187,7 +241,19 @@ ssize_t lw_ioctl_read(lw_i2c_bus *bus,
                       size_t len,
                       uint16_t flags)
 {
-    if (!bus || bus->fd < 0 || !data || len == 0 || (iaddr_len > 0 && !iaddr))
+    if (!bus)
+    {
+        errno = EINVAL;
+        return -1;
+    }
+
+    if (bus->fd < 0)
+    {
+        errno = EBADF;
+        return -1;
+    }
+
+    if (!data || len == 0 || (iaddr_len > 0 && !iaddr))
     {
         errno = EINVAL;
         return -1;
@@ -248,8 +314,19 @@ ssize_t lw_ioctl_write(lw_i2c_bus *bus,
                        size_t len,
                        uint16_t flags)
 {
-    if (!bus || bus->fd < 0 ||
-        (len > 0 && !data) ||
+    if (!bus)
+    {
+        errno = EINVAL;
+        return -1;
+    }
+
+    if (bus->fd < 0)
+    {
+        errno = EBADF;
+        return -1;
+    }
+
+    if ((len > 0 && !data) ||
         (iaddr_len > 0 && !iaddr) ||
         (iaddr_len + len == 0))
     {

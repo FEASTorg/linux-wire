@@ -85,11 +85,16 @@ static void testInternalAddressClamp()
 static void testTimeoutFlagOnReadFailure()
 {
     mockLinuxWireReset();
-    mockLinuxWireForceReadError(ETIMEDOUT);
 
     TwoWire tw;
-    tw.begin("/dev/i2c-mock");
+    tw.setErrorLogging(false);
     tw.setWireTimeout(1000, true);
+    tw.begin("/dev/i2c-mock");
+
+    assert(mockLinuxWireState().logErrors == 0);
+    assert(mockLinuxWireState().lastTimeoutUs == 1000);
+
+    mockLinuxWireForceReadError(ETIMEDOUT);
 
     uint8_t count = tw.requestFrom(static_cast<uint8_t>(0x30), static_cast<uint8_t>(1));
     assert(count == 0);
@@ -97,6 +102,8 @@ static void testTimeoutFlagOnReadFailure()
 
     const auto &state = mockLinuxWireState();
     assert(state.openCalls == 2); // initial begin + reopen after timeout
+    assert(state.logErrors == 0);
+    assert(state.lastTimeoutUs == 1000);
 
     mockLinuxWireClearReadError();
     tw.end();
@@ -123,6 +130,95 @@ static void testDeferredWriteFlushes()
     assert(state.lastWriteBuffer[0] == 0x55);
 
     tw.endTransmission();
+    tw.end();
+}
+
+static void testInternalAddressRequestFlushesPendingWrite()
+{
+    mockLinuxWireReset();
+    mockLinuxWireSetIoctlReadData({0x77});
+
+    TwoWire tw;
+    tw.begin("/dev/i2c-mock");
+
+    tw.beginTransmission(static_cast<uint8_t>(0x10));
+    tw.write(static_cast<uint8_t>(0xAA));
+    assert(tw.endTransmission(false) == 0);
+
+    uint8_t count = tw.requestFrom(static_cast<uint8_t>(0x20),
+                                   static_cast<uint8_t>(1),
+                                   static_cast<uint32_t>(0x05),
+                                   static_cast<uint8_t>(1),
+                                   static_cast<uint8_t>(1));
+    assert(count == 1);
+    assert(tw.read() == 0x77);
+
+    const auto &state = mockLinuxWireState();
+    assert(state.writeCalls == 1);
+    assert(!state.lastWriteWasIoctl);
+    assert(state.lastWriteSlaveAddr == 0x10);
+    assert(state.ioctlReadCalls == 1);
+    assert(state.lastIoctlAddr == 0x20);
+    assert(state.lastIoctlInternal.size() == 1);
+    assert(state.lastIoctlInternal[0] == 0x05);
+
+    tw.end();
+}
+
+static void testDeferredWriteFlushFailureBlocksRequestFrom()
+{
+    mockLinuxWireReset();
+
+    TwoWire tw;
+    tw.begin("/dev/i2c-mock");
+
+    tw.beginTransmission(static_cast<uint8_t>(0x10));
+    tw.write(static_cast<uint8_t>(0xAA));
+    assert(tw.endTransmission(false) == 0);
+
+    mockLinuxWireForceSetSlaveError(ENXIO);
+    uint8_t count = tw.requestFrom(static_cast<uint8_t>(0x20), static_cast<uint8_t>(1));
+    assert(count == 0);
+    assert(tw.available() == 0);
+
+    const auto &state = mockLinuxWireState();
+    assert(state.setSlaveCalls == 1);
+    assert(state.readCalls == 0);
+    assert(state.writeCalls == 0);
+
+    mockLinuxWireClearSetSlaveError();
+    tw.beginTransmission(static_cast<uint8_t>(0x20));
+    assert(tw.write(static_cast<uint8_t>(0x01)) == 1);
+    assert(tw.endTransmission() == 0);
+
+    tw.end();
+}
+
+static void testDeferredWriteFlushFailureBlocksNewTransmission()
+{
+    mockLinuxWireReset();
+
+    TwoWire tw;
+    tw.begin("/dev/i2c-mock");
+
+    tw.beginTransmission(static_cast<uint8_t>(0x22));
+    tw.write(static_cast<uint8_t>(0x55));
+    assert(tw.endTransmission(false) == 0);
+
+    mockLinuxWireForceWriteError(EIO);
+    tw.beginTransmission(static_cast<uint8_t>(0x33));
+    assert(tw.write(static_cast<uint8_t>(0x66)) == 0);
+    assert(tw.endTransmission() == 4);
+
+    const auto &state = mockLinuxWireState();
+    assert(state.writeCalls == 1);
+    assert(state.lastWriteSlaveAddr == 0x22);
+
+    mockLinuxWireClearWriteError();
+    tw.beginTransmission(static_cast<uint8_t>(0x33));
+    assert(tw.write(static_cast<uint8_t>(0x66)) == 1);
+    assert(tw.endTransmission() == 0);
+
     tw.end();
 }
 
@@ -229,8 +325,11 @@ int main()
     testPlainReadUsesRead();
     testRepeatedStartUsesIoctl();
     testInternalAddressClamp();
+    testInternalAddressRequestFlushesPendingWrite();
     testTimeoutFlagOnReadFailure();
     testDeferredWriteFlushes();
+    testDeferredWriteFlushFailureBlocksRequestFrom();
+    testDeferredWriteFlushFailureBlocksNewTransmission();
     testTxBufferOverflow();
     testFlushOnDifferentAddress();
     testZeroInternalAddressFallback();

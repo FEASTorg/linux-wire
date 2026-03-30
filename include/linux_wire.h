@@ -27,6 +27,7 @@ extern "C"
      *   device_path - Path used to open the bus (e.g., "/dev/i2c-1")
      *   timeout_us  - Timeout value in microseconds (0 = no timeout)
      *                 Currently informational only; not enforced by implementation
+     *   log_errors  - Non-zero enables perror logging for low-level failures
      */
     typedef struct
     {
@@ -51,7 +52,7 @@ extern "C"
      *   EACCES - Permission denied (user may need to be in 'i2c' group)
      *
      * On success, bus->fd contains a valid file descriptor.
-     * On failure, bus->fd is set to -1.
+     * On failure, the bus handle is reset to a closed state (`fd == -1`).
      *
      * Example:
      *   lw_i2c_bus bus;
@@ -100,9 +101,9 @@ extern "C"
      * @return Number of bytes written on success, -1 on error (errno set)
      *
      * Error conditions:
-     *   EINVAL   - Invalid parameters
-     *   EBADF    - Bus not open
-     *   ENXIO    - No device at selected address (NACK)
+     *   EINVAL    - Invalid parameters (NULL pointers, NULL buffer with len > 0)
+     *   EBADF     - Bus not open
+     *   ENXIO     - No device at selected address (NACK)
      *   ETIMEDOUT - Communication timeout
      *
      * Note: The send_stop parameter is accepted for API compatibility but
@@ -125,7 +126,7 @@ extern "C"
      * @return Number of bytes read on success, -1 on error (errno set)
      *
      * Error conditions:
-     *   EINVAL   - Invalid parameters
+     *   EINVAL   - Invalid parameters (NULL pointers, NULL buffer with len > 0)
      *   EBADF    - Bus not open
      *   ENXIO    - No device at selected address (NACK)
      *   ETIMEDOUT - Communication timeout
@@ -232,6 +233,9 @@ extern "C"
      *
      * @param bus Pointer to lw_i2c_bus
      * @param enable Non-zero to enable logging, zero to suppress
+     *
+     * This preference is also re-applied by the C++ wrapper after automatic
+     * timeout recovery and fresh `begin()` calls.
      */
     void lw_set_error_logging(lw_i2c_bus *bus, int enable);
 

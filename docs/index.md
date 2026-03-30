@@ -90,12 +90,12 @@ int main() {
 Important Arduino-parity notes:
 
 - `requestFrom(address, quantity, iaddress, isize, sendStop)` exists and clamps `isize` to 4 bytes, mirroring the upstream Wire overload.
-- Calling `endTransmission(false)` leaves the TX buffer intact for the next `requestFrom` to the same address. If no read follows, the buffer is flushed with a STOP before the next transmission to avoid silently dropping data.
-- `setWireTimeout(timeout_us, reset_on_timeout)` sets a flag when Linux reports `ETIMEDOUT`. If `reset_on_timeout` is true, the bus handle is closed and reopened automatically (matching the AVR `twi` reset behavior).
+- Calling `endTransmission(false)` leaves the TX buffer intact for the next `requestFrom` to the same address. If no read follows, the buffer is flushed with a STOP before the next operation; if that automatic flush fails, the follow-on operation fails instead of silently continuing.
+- `setWireTimeout(timeout_us, reset_on_timeout)` sets a flag when Linux reports `ETIMEDOUT`. If `reset_on_timeout` is true, the bus handle is closed and reopened automatically (matching the AVR `twi` reset behavior), and stored timeout/logging preferences are re-applied.
 
 ## Testing
 
-Software-only tests live in `tests/`. They use a mock `lw_*` backend to exercise buffer management, repeated-start logic, and timeout handling without real hardware:
+Software-only tests live in `tests/`. They use a mock `lw_*` backend to exercise buffer management, repeated-start logic, deferred-write failure handling, and timeout handling without real hardware:
 
 ```sh
 ctest --test-dir build --output-on-failure

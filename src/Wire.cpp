@@ -8,6 +8,7 @@
 
 TwoWire::TwoWire()
     : bus_open_(false),
+      errorLoggingEnabled_(true),
       devicePath_{0},
       txAddress_(0),
       transmitting_(false),
@@ -42,11 +43,15 @@ void TwoWire::begin(const char *device)
     /* Clean up existing connection fully before attempting new one */
     if (bus_open_)
     {
-        flushPendingRepeatedStart();
+        bool flushed = flushPendingRepeatedStart();
         resetTxBuffer();
         resetRxBuffer();
         lw_close_bus(&bus_);
         bus_open_ = false;
+        if (!flushed)
+        {
+            return;
+        }
     }
 
     /* Copy device path */
@@ -62,6 +67,7 @@ void TwoWire::begin(const char *device)
     if (lw_open_bus(&bus_, devicePath_) == 0)
     {
         bus_open_ = true;
+        applyBusConfiguration();
         resetTxBuffer();
         resetRxBuffer();
     }
@@ -124,12 +130,18 @@ void TwoWire::clearWireTimeoutFlag(void)
 
 void TwoWire::setErrorLogging(bool enable)
 {
+    errorLoggingEnabled_ = enable;
     lw_set_error_logging(&bus_, enable ? 1 : 0);
 }
 
 void TwoWire::beginTransmission(uint8_t address)
 {
-    flushPendingRepeatedStart();
+    if (!flushPendingRepeatedStart())
+    {
+        transmitting_ = false;
+        return;
+    }
+
     transmitting_ = true;
     txAddress_ = address;
     resetTxBuffer();
@@ -170,7 +182,11 @@ uint8_t TwoWire::endTransmission(uint8_t sendStop)
         return 0;
     }
 
-    flushPendingRepeatedStart();
+    if (!flushPendingRepeatedStart())
+    {
+        transmitting_ = false;
+        return 4;
+    }
 
     /* Select slave */
     if (lw_set_slave(&bus_, txAddress_) != 0)
@@ -215,7 +231,11 @@ uint8_t TwoWire::requestFrom(uint8_t address, uint8_t quantity, uint8_t sendStop
     }
     else if (hasPendingTxForRead_ && txAddress_ != address)
     {
-        flushPendingRepeatedStart();
+        if (!flushPendingRepeatedStart())
+        {
+            resetRxBuffer();
+            return 0;
+        }
     }
 
     return requestFrom(address, quantity, internal, internalLen, sendStop, consumePendingTx);
@@ -232,6 +252,12 @@ uint8_t TwoWire::requestFrom(uint8_t address, uint8_t quantity, uint32_t iaddres
     if (isize > INTERNAL_ADDRESS_MAX)
     {
         isize = INTERNAL_ADDRESS_MAX;
+    }
+
+    if (hasPendingTxForRead_ && !flushPendingRepeatedStart())
+    {
+        resetRxBuffer();
+        return 0;
     }
 
     resetTxBuffer();
@@ -373,6 +399,12 @@ void TwoWire::resetRxBuffer()
     rxBufferLength_ = 0;
 }
 
+void TwoWire::applyBusConfiguration()
+{
+    lw_set_timeout(&bus_, wireTimeoutUs_);
+    lw_set_error_logging(&bus_, errorLoggingEnabled_ ? 1 : 0);
+}
+
 uint8_t TwoWire::requestFrom(uint8_t address,
                              uint8_t quantity,
                              const uint8_t *internalAddress,
@@ -497,6 +529,7 @@ bool TwoWire::reopenBus(const char *device)
     if (lw_open_bus(&bus_, device) == 0)
     {
         bus_open_ = true;
+        applyBusConfiguration();
         return true;
     }
 

@@ -16,6 +16,9 @@ struct MockLinuxWireState
     bool lastWriteWasIoctl = false;
     uint8_t lastWriteSlaveAddr = 0;
     int logErrors = 1;
+    int setErrorLoggingCalls = 0;
+    int setTimeoutCalls = 0;
+    uint32_t lastTimeoutUs = 0;
     int readCalls = 0;
     std::vector<uint8_t> lastReadBuffer;
     int ioctlReadCalls = 0;
@@ -28,4 +31,8 @@ void mockLinuxWireSetReadData(const std::vector<uint8_t> &data);
 void mockLinuxWireSetIoctlReadData(const std::vector<uint8_t> &data);
 void mockLinuxWireForceReadError(int err);
 void mockLinuxWireClearReadError();
+void mockLinuxWireForceSetSlaveError(int err);
+void mockLinuxWireClearSetSlaveError();
+void mockLinuxWireForceWriteError(int err);
+void mockLinuxWireClearWriteError();
 const MockLinuxWireState &mockLinuxWireState();

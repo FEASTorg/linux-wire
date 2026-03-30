@@ -17,6 +17,10 @@ namespace
         std::vector<uint8_t> ioctlReadData;
         bool failRead = false;
         int failReadErrno = ETIMEDOUT;
+        bool failSetSlave = false;
+        int failSetSlaveErrno = ENXIO;
+        bool failWrite = false;
+        int failWriteErrno = EIO;
     };
 
     MockLinuxWireState g_state;
@@ -50,6 +54,28 @@ void mockLinuxWireClearReadError()
     g_config.failRead = false;
 }
 
+void mockLinuxWireForceSetSlaveError(int err)
+{
+    g_config.failSetSlave = true;
+    g_config.failSetSlaveErrno = err;
+}
+
+void mockLinuxWireClearSetSlaveError()
+{
+    g_config.failSetSlave = false;
+}
+
+void mockLinuxWireForceWriteError(int err)
+{
+    g_config.failWrite = true;
+    g_config.failWriteErrno = err;
+}
+
+void mockLinuxWireClearWriteError()
+{
+    g_config.failWrite = false;
+}
+
 const MockLinuxWireState &mockLinuxWireState()
 {
     return g_state;
@@ -70,8 +96,10 @@ extern "C"
         std::strncpy(bus->device_path, device_path, LINUX_WIRE_DEVICE_PATH_MAX - 1);
         bus->device_path[LINUX_WIRE_DEVICE_PATH_MAX - 1] = '\0';
         bus->timeout_us = 0;
-        bus->log_errors = g_state.logErrors;
+        bus->log_errors = 1;
         g_state.lastDevicePath = device_path;
+        g_state.lastTimeoutUs = 0;
+        g_state.logErrors = 1;
         return 0;
     }
 
@@ -89,15 +117,25 @@ extern "C"
     {
         ++g_state.setSlaveCalls;
         g_state.lastSetSlaveAddr = addr;
+        if (g_config.failSetSlave)
+        {
+            errno = g_config.failSetSlaveErrno;
+            return -1;
+        }
         return 0;
     }
 
 ssize_t lw_write(lw_i2c_bus * /*bus*/, const uint8_t *data, size_t len, int /*send_stop*/)
 {
     ++g_state.writeCalls;
-    g_state.lastWriteBuffer.assign(data, data + len);
     g_state.lastWriteWasIoctl = false;
     g_state.lastWriteSlaveAddr = g_state.lastSetSlaveAddr;
+    if (g_config.failWrite)
+    {
+        errno = g_config.failWriteErrno;
+        return -1;
+    }
+    g_state.lastWriteBuffer.assign(data, data + len);
     return static_cast<ssize_t>(len);
 }
 
@@ -160,14 +198,20 @@ ssize_t lw_ioctl_write(lw_i2c_bus * /*bus*/,
     return static_cast<ssize_t>(len);
 }
 
-int lw_set_timeout(lw_i2c_bus * /*bus*/, uint32_t timeout_us)
+int lw_set_timeout(lw_i2c_bus *bus, uint32_t timeout_us)
 {
-    (void)timeout_us;
+    ++g_state.setTimeoutCalls;
+    g_state.lastTimeoutUs = timeout_us;
+    if (bus)
+    {
+        bus->timeout_us = timeout_us;
+    }
     return 0;
 }
 
 void lw_set_error_logging(lw_i2c_bus *bus, int enable)
 {
+    ++g_state.setErrorLoggingCalls;
     g_state.logErrors = enable ? 1 : 0;
     if (bus)
     {

@@ -22,18 +22,39 @@ int main(void)
 
     EXPECT_ERR(lw_open_bus(NULL, "/dev/null"), EINVAL);
     EXPECT_ERR(lw_open_bus(&bus, ""), EINVAL);
+    assert(bus.fd == -1);
+    assert(bus.device_path[0] == '\0');
+    assert(bus.timeout_us == 0);
+
+    bus.fd = 42;
+    memset(bus.device_path, 'x', sizeof(bus.device_path));
+    bus.timeout_us = 99;
+    EXPECT_ERR(lw_open_bus(&bus, "/dev/not-i2c-1"), EINVAL);
+    assert(bus.fd == -1);
+    assert(bus.device_path[0] == '\0');
+    assert(bus.timeout_us == 0);
+
+    bus.fd = 42;
+    memset(bus.device_path, 'x', sizeof(bus.device_path));
+    bus.timeout_us = 99;
+    EXPECT_ERR(lw_open_bus(&bus, "/dev/i2c-1x"), EINVAL);
+    assert(bus.fd == -1);
+    assert(bus.device_path[0] == '\0');
+    assert(bus.timeout_us == 0);
 
     EXPECT_ERR(lw_set_slave(&bus, 0x10), EBADF);
 
     uint8_t byte = 0x00;
     uint8_t buf[1];
 
-    EXPECT_ERR(lw_write(&bus, &byte, 1, 1), EINVAL);
-    EXPECT_ERR(lw_read(&bus, buf, 1), EINVAL);
+    EXPECT_ERR(lw_write(&bus, &byte, 1, 1), EBADF);
+    EXPECT_ERR(lw_read(&bus, buf, 1), EBADF);
 
-    EXPECT_ERR(lw_ioctl_read(&bus, 0x10, &byte, 1, buf, 1, 0), EINVAL);
+    EXPECT_ERR(lw_ioctl_read(&bus, 0x10, &byte, 1, buf, 1, 0), EBADF);
+    EXPECT_ERR(lw_ioctl_write(&bus, 0x10, &byte, 1, &byte, 1, 0), EBADF);
 
     bus.fd = 0; /* bypass fd check to hit other validation branches */
+    EXPECT_ERR(lw_set_slave(&bus, 0x80), EINVAL);
 
     EXPECT_ERR(lw_ioctl_write(&bus, 0x20, NULL, 1, &byte, 1, 0), EINVAL);
     EXPECT_ERR(lw_ioctl_write(&bus, 0x20, &byte, 1, NULL, 1, 0), EINVAL);

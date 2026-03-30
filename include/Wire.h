@@ -64,6 +64,8 @@ public:
      *   Wire.begin("/dev/i2c-0");  // Uses /dev/i2c-0
      *
      * Note: If already open, this will close and reopen the bus.
+     *       Stored timeout and error-logging preferences are re-applied
+     *       after every successful open.
      */
     void begin(const char *device = "/dev/i2c-1");
 
@@ -106,6 +108,8 @@ public:
      *
      * Note: Timeout enforcement is currently informational only.
      *       Future versions may implement actual timeout via select/poll.
+     *       The configured timeout hint is preserved across `begin()` and
+     *       timeout-triggered reopen operations.
      */
     void setWireTimeout(uint32_t timeout_us = 25000, bool reset_with_timeout = false);
 
@@ -124,6 +128,9 @@ public:
     /**
      * Enable or disable error messages printed by the low-level I2C helpers.
      * Useful when deliberately probing addresses that will NACK (e.g., strict scanner).
+     *
+     * The chosen setting is preserved across `begin()` and timeout-triggered
+     * reopen operations.
      */
     void setErrorLogging(bool enable);
 
@@ -159,6 +166,9 @@ public:
      *       requestFrom() call, avoiding an intervening STOP condition.
      *       The actual STOP is still issued by the kernel driver; this
      *       just controls whether to use combined ioctl transactions.
+     *       If an older deferred write must be auto-flushed first and that
+     *       flush fails, this method returns 4 and does not send the new
+     *       transmission.
      */
     uint8_t endTransmission(uint8_t sendStop);
     uint8_t endTransmission(void);
@@ -176,6 +186,10 @@ public:
      *
      * After successful call, use available(), read(), and peek() to
      * access the received data.
+     *
+     * If a deferred write from `endTransmission(false)` must be auto-flushed
+     * before starting this read and that flush fails, this method returns 0
+     * and does not start the read.
      *
      * Examples:
      *   // Simple read
@@ -245,6 +259,7 @@ public:
 private:
     lw_i2c_bus bus_;
     bool bus_open_;
+    bool errorLoggingEnabled_;
 
     char devicePath_[LINUX_WIRE_DEVICE_PATH_MAX];
     uint8_t txAddress_;
@@ -266,6 +281,7 @@ private:
 
     void resetTxBuffer();
     void resetRxBuffer();
+    void applyBusConfiguration();
 
     uint8_t requestFrom(uint8_t address,
                         uint8_t quantity,
