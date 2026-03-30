@@ -39,3 +39,13 @@
 
 # debug information files
 *.dwo
+
+# Build files
+build/
+build-*/
+
+# personal work files
+planning/
+
+# log files
+*.log
