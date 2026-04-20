@@ -1,0 +1,79 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release-linux-x86_64:
+    name: Release (linux-x86_64)
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build gcc g++ jq
+
+      - name: Extract version
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Configure (minimal)
+        run: cmake --preset minimal
+
+      - name: Build
+        run: cmake --build --preset minimal
+
+      - name: Install to staging
+        run: cmake --install build/minimal --prefix "${{ github.workspace }}/staging"
+
+      - name: Package binary artifact
+        id: package
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          ARTIFACT="linux-wire-${VERSION}-linux-x86_64.tar.gz"
+          tar -czf "${ARTIFACT}" -C "${{ github.workspace }}/staging" .
+          echo "artifact=${ARTIFACT}" >> "$GITHUB_OUTPUT"
+
+      - name: Package source tarball
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          git archive --format=tar.gz \
+            --prefix="linux-wire-${VERSION}/" \
+            -o "linux-wire-${VERSION}-source.tar.gz" \
+            HEAD
+
+      - name: Generate checksums
+        run: sha256sum linux-wire-*.tar.gz > SHA256SUMS
+
+      - name: Generate manifest
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          ARTIFACT="${{ steps.package.outputs.artifact }}"
+          SHA=$(grep "${ARTIFACT}" SHA256SUMS | awk '{print $1}')
+          jq -n \
+            --argjson schema_version 1 \
+            --arg repo "feastorg/linux-wire" \
+            --arg component "linux-wire" \
+            --arg version "${VERSION}" \
+            --arg platform "linux-x86_64" \
+            --arg asset "${ARTIFACT}" \
+            --arg sha256 "${SHA}" \
+            '{schema_version: $schema_version, repo: $repo, component: $component, version: $version, platform: $platform, asset: $asset, sha256: $sha256}' \
+            > manifest.json
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            linux-wire-*.tar.gz
+            SHA256SUMS
+            manifest.json
+          generate_release_notes: true
