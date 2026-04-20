@@ -1,6 +1,6 @@
 # linux-wire
 
-[![CI](https://github.com/FEASTorg/linux-wire/actions/workflows/ci.yml/badge.svg)](https://github.com/FEASTorg/linux-wire/actions/workflows/ci.yml)
+[![CI](https://github.com/feastorg/linux-wire/actions/workflows/ci.yml/badge.svg)](https://github.com/feastorg/linux-wire/actions/workflows/ci.yml)
 
 linux-wire is a minimal Linux-native I2C abstraction that mirrors Arduino's `Wire` API. It ships a tiny C shim over `/dev/i2c-*` plus a `TwoWire` C++ class so Arduino-style sketches can run on Raspberry Pi-class systems without heavyweight dependencies.
 
